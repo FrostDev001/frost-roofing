@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Frost Roofing Inventory</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#eef6f7;min-height:100vh;-webkit-tap-highlight-color:transparent}
+input,select,textarea{font-family:inherit;-webkit-appearance:none;appearance:none;background:white}
+.btn-brand{background:linear-gradient(135deg,#0f6570,#168c97);color:white;border:none;cursor:pointer;font-weight:600;-webkit-appearance:none}
+.btn-brand:disabled{opacity:.4}
+.card{background:white;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);border:1px solid #e5f4f5;overflow:hidden}
+.sec-hdr{background:linear-gradient(135deg,#0f6570,#168c97);color:white;padding:10px 16px;font-weight:700;font-size:14px}
+.chip{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600}
+.c-out{background:#fee2e2;color:#b91c1c}.c-low{background:#fef9c3;color:#92400e}
+.c-ok{background:#d1fae5;color:#065f46}.c-ord{background:#dbeafe;color:#1e40af}
+.c-type{background:#f3e8ff;color:#6b21a8}
+.r-out{background:#fff5f5;border-color:#fecaca}.r-low{background:#fffbeb;border-color:#fde68a}
+.r-ok{background:white;border-color:#e5e7eb}.r-ord{background:#eff6ff;border-color:#bfdbfe}
+.spin{display:inline-block;width:40px;height:40px;border:4px solid #e5f4f5;border-top-color:#168c97;border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.page{padding:16px;padding-bottom:96px;max-width:640px;margin:0 auto}
+.hdr{background:linear-gradient(135deg,#0f6570,#168c97);position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.bnav{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #e5e7eb;display:flex;justify-content:space-around;padding:6px 0;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px));z-index:100;box-shadow:0 -2px 10px rgba(0,0,0,.08)}
+.nb{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 6px;border:none;background:none;cursor:pointer;font-size:10px;font-weight:600;color:#9ca3af;-webkit-appearance:none}
+.nb.on{color:#168c97}
+.nb .ic{font-size:18px}
+.pill{padding:4px 12px;border-radius:999px;border:1px solid #ddd;font-size:12px;font-weight:500;background:white;cursor:pointer;color:#555;-webkit-appearance:none}
+.pill.on{background:#168c97;color:white;border-color:#168c97}
+.fw{display:flex;flex-direction:column;gap:4px}
+.fw label{font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em}
+.fw input,.fw select,.fw textarea{border:1px solid #e5e7eb;border-radius:10px;padding:8px 12px;font-size:16px;width:100%;outline:none;background:white}
+.fw input:focus,.fw select:focus,.fw textarea:focus{border-color:#168c97}
+.fbox{background:#f0fafb;border:1px solid #d1eeef;border-radius:14px;padding:16px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex}
+.drw{width:280px;background:#f0fafb;height:100%;display:flex;flex-direction:column;box-shadow:4px 0 20px rgba(0,0,0,.2);overflow-y:auto}
+.di{padding:12px 20px;font-size:14px;display:flex;align-items:center;gap:12px;cursor:pointer;color:#374151;background:none;border:none;border-bottom:1px solid #e5f4f5;text-align:left;width:100%;-webkit-appearance:none}
+.di.on{background:white;color:#168c97;font-weight:700}
+.sc{border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);cursor:pointer;border:none;background:none;text-align:left;width:100%}
+.ir{border:1px solid;border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.bc{background:#168c97;color:white;font-size:10px;padding:1px 7px;border-radius:999px;font-weight:700}
+.sb{padding:4px 10px;font-size:12px;border:1px solid #e5e7eb;border-radius:8px;background:white;cursor:pointer}
+.sb.d{color:#ef4444}
+.mov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px}
+.mod{background:white;border-radius:20px;padding:20px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)}
+input[type="checkbox"],input[type="radio"]{-webkit-appearance:auto !important;appearance:auto !important;width:18px;height:18px;flex-shrink:0;cursor:pointer}
+.cr{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;font-weight:500;color:#374151}
+</style>
+</head>
+<body>
+<div id="root">
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px">
+    <div class="spin"></div>
+    <p style="color:#168c97;font-weight:600">Connecting to Frost Roofing…</p>
+    <p id="errmsg" style="color:#ef4444;font-size:13px;max-width:300px;text-align:center;display:none"></p>
+  </div>
+</div>
+
+<script>
+function showErr(msg){
+  var el=document.getElementById('errmsg');
+  if(el){el.style.display='block';el.textContent=msg;}
+}
+function loadScript(src,cb){
+  var s=document.createElement('script');
+  s.src=src;
+  s.onload=cb;
+  s.onerror=function(){showErr('Failed to load: '+src);};
+  document.head.appendChild(s);
+}
+
+loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',function(){
+loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js',function(){
+loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js',function(){
+  try{
+    var cfg={
+      apiKey:"AIzaSyAJhTeHEpo-SXUwCVsRyO_dd7WdWFJ13UQ",
+      authDomain:"inventory-tracker-8f080.firebaseapp.com",
+      projectId:"inventory-tracker-8f080",
+      storageBucket:"inventory-tracker-8f080.firebasestorage.app",
+      messagingSenderId:"237298409883",
+      appId:"1:237298409883:web:609f387ebb65fe425fc13e"
+    };
+    if(!firebase.apps.length) firebase.initializeApp(cfg);
+    window.db=firebase.firestore();
+    window.auth=firebase.auth();
+    window.FS={
+      save:function(col,id,data){return window.db.collection(col).doc(id).set(data);},
+      del:function(col,id){return window.db.collection(col).doc(id).delete();},
+      watchCol:function(col,cb){return window.db.collection(col).onSnapshot(function(s){cb(s.docs.map(function(d){return Object.assign({id:d.id},d.data());}));});},
+      watchDoc:function(col,id,cb){return window.db.collection(col).doc(id).onSnapshot(function(s){cb(s.exists?s.data():null);});}
+    };
+  }catch(e){showErr('Firebase error: '+e.message);return;}
+  loadScript('https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',function(){
+  loadScript('https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',function(){
+  loadScript('https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js',function(){
+    var appScript=document.getElementById('app-source');
+    var s=document.createElement('script');
+    s.type='text/babel';
+    s.setAttribute('data-presets','react');
+    s.textContent=appScript.textContent;
+    document.body.appendChild(s);
+    Babel.transformScriptTags();
+  });});});
+});});});
+</script>
+
+<script type="text/plain" id="app-source">
+const {useState,useEffect,useRef,useCallback} = React;
+const FS=window.FS, auth=window.auth;
+const B="#168c97",BD="#0f6570";
+const RCATS=["EPDM","TPO","PVC","Mod/Built Up","Metal","Other"];
+const BCATS=["PPE","Roofing Tools","Roofing Supplies","Other"];
+const UNITS=["Roll","Each","Foot","Square Foot","Gallon","Pail","Other"];
+const MFGS=["Versico","Carlisle","Elevate","GAF","Johns Manville","GenFlex","Soprema","Siplast","FiberTite","Karnak","Nova Flex","N/A","Other"];
+const TYPES=["Material","Adhesive","Sealant","Termination","Cleaner","Other"];
+const SLBLS={roofing:"Roofing Materials",bigrock:"Big Rock Supply",misc:"Misc"};
+const USERS=[
+  {name:"Pat Boedicker",email:"pat.boedicker@frost-roofing.com"},
+  {name:"Emily Prenger",email:"emily.prenger@frost-roofing.com"},
+  {name:"Larry Holloway",email:"larry.holloway@frost-roofing.com"},
+  {name:"Chad Dunlap",email:"chad.dunlap@frost-roofing.com"},
+  {name:"Chuck McCord",email:"chuck.mccord@frost-roofing.com"},
+  {name:"John Hassenauer",email:"john.hassenauer@frost-roofing.com"},
+];
+const DSET={companyName:"Frost Roofing Inc.",companyAddress:"PO Box 1959",companyCity:"Wapakoneta, OH 45895",companyPhone:"(419) 739-2701",companyEmail:"info@frost-roofing.com"};
+const PAGES={home:"Dashboard",roofing:"Roofing Materials",bigrock:"Big Rock Supply",misc:"Misc",vendors:"Vendors",po:"Create PO",history:"Order History",settings:"Settings"};
+const NAV=[{id:"home",ic:"🏠",lb:"Home"},{id:"roofing",ic:"📦",lb:"Roofing"},{id:"bigrock",ic:"🏗",lb:"Big Rock"},{id:"po",ic:"📄",lb:"PO"},{id:"history",ic:"🕐",lb:"History"},{id:"settings",ic:"⚙",lb:"Settings"}];
+const ALLNAV=[{id:"home",ic:"🏠",lb:"Home"},{id:"roofing",ic:"📦",lb:"Roofing Materials"},{id:"bigrock",ic:"🏗",lb:"Big Rock Supply"},{id:"misc",ic:"📋",lb:"Misc"},{id:"vendors",ic:"🏢",lb:"Vendors"},{id:"po",ic:"📄",lb:"Create PO"},{id:"history",ic:"🕐",lb:"Order History"},{id:"settings",ic:"⚙",lb:"Settings"}];
+
+// ── ALLOWED GOOGLE ACCOUNTS ──────────────────────────────────────────────────
+// Add your Gmail address here. To add more users later, add their Gmail to this list.
+const ALLOWED_EMAILS=[
+  "pboedicker@gmail.com",
+];
+// ─────────────────────────────────────────────────────────────────────────────
+
+function gst(i){
+  const q=Number(i.qty)||0,o=Number(i.outThreshold)||0,l=Number(i.lowThreshold)||5,n=Number(i.onOrder)||0;
+  if(n>0&&(q<=o||q<=l)&&(q+n)>l) return "ord";
+  if(q<=o) return "out";
+  if(q<=l) return "low";
+  return "ok";
+}
+function rcls(i){return "ir "+{out:"r-out",low:"r-low",ok:"r-ok",ord:"r-ord"}[gst(i)];}
+function SChip({item}){
+  const s=gst(item),m={out:["c-out","Out"],low:["c-low","Low"],ok:["c-ok","Stocked"],ord:["c-ord","Ordered"]};
+  return <span className={"chip "+m[s][0]}>{m[s][1]}</span>;
+}
+function Logo({h=44}){
+  return <svg height={h} viewBox="0 0 240 46" fill="none" style={{display:"block"}}>
+    <rect width="240" height="46" rx="6" fill="rgba(255,255,255,0.13)"/>
+    <text x="120" y="23" textAnchor="middle" fontFamily="Arial Black,Arial" fontWeight="900" fontSize="21" fill="white" letterSpacing="1">FROST ROOFING</text>
+    <text x="120" y="39" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="400" fontSize="11" fill="rgba(255,255,255,0.82)" letterSpacing="3">INVENTORY MANAGER</text>
+  </svg>;
+}
+function F({lbl,val,onChange,type="text",ph="",rows,style,disabled}){
+  return <div className="fw" style={style}>
+    {lbl&&<label>{lbl}</label>}
+    {rows
+      ?<textarea rows={rows} value={val||""} placeholder={ph} onChange={e=>onChange(e.target.value)}/>
+      :<input type={type} value={val||""} placeholder={ph} onChange={e=>onChange(e.target.value)} disabled={!!disabled}/>
+    }
+  </div>;
+}
+function Sel({lbl,val,onChange,children,style}){
+  return <div className="fw" style={style}>
+    {lbl&&<label>{lbl}</label>}
+    <select value={val||""} onChange={e=>onChange(e.target.value)}>{children}</select>
+  </div>;
+}
+function UnitSel({val,onChange}){
+  const known=UNITS.includes(val);
+  const [s,setS]=useState(known?val:(val?"Other":""));
+  const [c,setC]=useState(known?"":val||"");
+  useEffect(()=>{const k=UNITS.includes(val)?val:(val?"Other":"");setS(k);setC(UNITS.includes(val)?"":val||"");},[val]);
+  const pick=v=>{setS(v);if(v!=="Other")onChange(v);else onChange(c);};
+  return <div className="fw">
+    <label>Unit of Measure</label>
+    <select value={s} onChange={e=>pick(e.target.value)}>
+      <option value="">-- Select Unit --</option>
+      {UNITS.map(u=><option key={u} value={u}>{u}</option>)}
+    </select>
+    {s==="Other"&&<input style={{marginTop:4,border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",fontSize:16,width:"100%",outline:"none",background:"white"}} value={c} placeholder="Enter unit (required)" onChange={e=>{setC(e.target.value);onChange(e.target.value);}}/>}
+  </div>;
+}
+function MfgSel({val,onChange}){
+  const known=MFGS.includes(val);
+  const [s,setS]=useState(known?val:(val?"Other":""));
+  const [c,setC]=useState(known?"":val||"");
+  useEffect(()=>{const k=MFGS.includes(val)?val:(val?"Other":"");setS(k);setC(MFGS.includes(val)?"":val||"");},[val]);
+  const pick=v=>{setS(v);if(v!=="Other")onChange(v);else onChange(c);};
+  return <div className="fw" style={{gridColumn:"1/-1"}}>
+    <label>Manufacturer</label>
+    <select value={s} onChange={e=>pick(e.target.value)}>
+      <option value="">-- Select Manufacturer --</option>
+      {MFGS.map(m=><option key={m} value={m}>{m}</option>)}
+    </select>
+    {s==="Other"&&<input style={{marginTop:4,border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",fontSize:16,width:"100%",outline:"none",background:"white"}} value={c} placeholder="Enter manufacturer (required)" onChange={e=>{setC(e.target.value);onChange(e.target.value);}}/>}
+  </div>;
+}
+function MoveModal({item,onClose,onMove}){
+  const [dest,setDest]=useState("");
+  const others=Object.keys(SLBLS).filter(s=>s!==item.section);
+  return <div className="mov" onClick={onClose}>
+    <div className="mod" style={{maxWidth:340}} onClick={e=>e.stopPropagation()}>
+      <h3 style={{fontSize:15,fontWeight:700,marginBottom:10}}>Move Item</h3>
+      <p style={{fontSize:13,color:"#6b7280",marginBottom:14}}>Move "<b>{item.name}</b>" to:</p>
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+        {others.map(s=><button key={s} onClick={()=>setDest(s)} style={{padding:"10px 14px",borderRadius:12,border:"2px solid",borderColor:dest===s?B:"#e5e7eb",background:dest===s?"#f0fafb":"white",fontWeight:600,fontSize:14,cursor:"pointer",color:dest===s?B:"#374151"}}>{SLBLS[s]}</button>)}
+      </div>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+        <button className="sb" onClick={onClose}>Cancel</button>
+        <button className="btn-brand" style={{padding:"8px 18px",borderRadius:10}} disabled={!dest} onClick={()=>{onMove(item,dest);onClose();}}>Move</button>
+      </div>
+    </div>
+  </div>;
+}
+function CSVModal({onClose,onImport,defSec}){
+  const [sec,setSec]=useState(defSec||"roofing");
+  const [file,setFile]=useState(null);
+  const [prev,setPrev]=useState(null);
+  const [err,setErr]=useState("");
+  const ref=useRef();
+  const HDR="name,manufacturer,category,itemType,qty,unit,outThreshold,lowThreshold,onOrder,vendor,notes";
+  const EX={roofing:"EPDM 60mil 10x100,Carlisle,EPDM,Material,5,Roll,0,2,0,Vendor,\nLap Sealant,Carlisle,EPDM,Sealant,24,Each,5,10,0,Vendor,",bigrock:"Hard Hat,N/A,PPE,Material,20,Each,5,10,0,Vendor,",misc:"Misc Item,,,,1,Each,0,1,0,,"};
+  const dl=()=>{const b=new Blob([HDR+"\n"+(EX[sec]||"")],{type:"text/csv"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=`frost_${sec}.csv`;a.click();};
+  const parse=txt=>{
+    const lines=txt.split("\n").map(l=>l.trim()).filter(l=>l&&!l.startsWith("#"));
+    if(lines.length<2){setErr("Need header + at least 1 row.");return;}
+    const hdrs=lines[0].split(",").map(h=>h.trim().toLowerCase().replace(/\s/g,""));
+    if(!hdrs.includes("name")){setErr('Missing "name" column.');return;}
+    const rows=[];
+    for(let i=1;i<lines.length;i++){
+      const vs=lines[i].split(",").map(v=>v.trim());
+      const o={};hdrs.forEach((h,j)=>{o[h]=vs[j]||"";});
+      if(!o.name)continue;
+      rows.push({id:Date.now()+""+i,section:sec,name:o.name,manufacturer:o.manufacturer||"",category:o.category||"",itemType:o.itemtype||"",qty:o.qty||"0",unit:o.unit||"",outThreshold:o.outthreshold||"0",lowThreshold:o.lowthreshold||"5",onOrder:o.onorder||"0",vendor:o.vendor||"",notes:o.notes||""});
+    }
+    if(!rows.length){setErr("No valid rows.");return;}
+    setErr("");setPrev(rows);
+  };
+  const hf=e=>{const f=e.target.files[0];if(!f)return;setFile(f);setPrev(null);setErr("");const r=new FileReader();r.onload=ev=>parse(ev.target.result);r.readAsText(f);};
+  return <div className="mov" onClick={onClose}>
+    <div className="mod" onClick={e=>e.stopPropagation()}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <h2 style={{fontSize:16,fontWeight:700}}>📥 CSV Import</h2>
+        <button onClick={onClose} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#9ca3af"}}>✕</button>
+      </div>
+      <div style={{background:"#f0fafb",borderRadius:12,padding:12,marginBottom:10}}>
+        <p style={{fontSize:13,fontWeight:700,color:B,marginBottom:8}}>Step 1 — Section & Template</p>
+        <div style={{display:"flex",gap:6,marginBottom:10}}>
+          {["roofing","bigrock","misc"].map(s=><button key={s} onClick={()=>setSec(s)} className={"pill"+(sec===s?" on":"")} style={{flex:1}}>{({roofing:"Roofing",bigrock:"Big Rock",misc:"Misc"})[s]}</button>)}
+        </div>
+        <button onClick={dl} className="btn-brand" style={{width:"100%",padding:"9px",borderRadius:10,fontSize:13}}>⬇ Download Template</button>
+      </div>
+      <div style={{background:"#f0fafb",borderRadius:12,padding:12,marginBottom:10}}>
+        <p style={{fontSize:13,fontWeight:700,color:B,marginBottom:8}}>Step 2 — Upload CSV</p>
+        <div style={{border:"2px dashed #a5d8dc",borderRadius:10,padding:18,textAlign:"center",cursor:"pointer",background:"white"}} onClick={()=>ref.current.click()}>
+          <div style={{fontSize:26,marginBottom:4}}>📂</div>
+          <p style={{fontSize:13,color:"#6b7280"}}>{file?`✓ ${file.name}`:"Tap to select CSV"}</p>
+          <input type="file" accept=".csv" ref={ref} style={{display:"none"}} onChange={hf}/>
+        </div>
+        {err&&<p style={{color:"#ef4444",fontSize:12,marginTop:6}}>{err}</p>}
+      </div>
+      {prev&&<div style={{background:"#f0fafb",borderRadius:12,padding:12}}>
+        <p style={{fontSize:13,fontWeight:700,color:B,marginBottom:8}}>Step 3 — Preview ({prev.length} items)</p>
+        <div style={{maxHeight:160,overflowY:"auto",display:"flex",flexDirection:"column",gap:4}}>
+          {prev.map((r,i)=><div key={i} style={{fontSize:12,background:"white",borderRadius:8,padding:"5px 10px",border:"1px solid #e5e7eb"}}><b>{r.name}</b>{r.manufacturer&&<span style={{color:"#6b7280",marginLeft:6}}>{r.manufacturer}</span>}<span style={{color:B,marginLeft:6,fontWeight:600}}>Qty:{r.qty} {r.unit}</span></div>)}
+        </div>
+        <button className="btn-brand" style={{width:"100%",padding:"10px",borderRadius:10,marginTop:10,fontSize:14}} onClick={()=>{onImport(prev);onClose();}}>✅ Import {prev.length} items</button>
+      </div>}
+    </div>
+  </div>;
+}
+function ItemForm({item,onSave,onCancel,section}){
+  const cats=section==="roofing"?RCATS:section==="bigrock"?BCATS:[];
+  const [f,setF]=useState(()=>item?{...item}:{name:"",manufacturer:"",category:cats[0]||"",itemType:"",qty:"",unit:"",outThreshold:"0",lowThreshold:"5",onOrder:"",vendor:"",notes:""});
+  const up=useCallback((k,v)=>setF(p=>({...p,[k]:v})),[]);
+  return <div className="fbox" style={{marginBottom:12}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <F lbl="Item Name" val={f.name} onChange={v=>up("name",v)} style={{gridColumn:"1/-1"}}/>
+      <MfgSel val={f.manufacturer} onChange={v=>up("manufacturer",v)}/>
+      {cats.length>0&&<Sel lbl="Category" val={f.category} onChange={v=>up("category",v)}>{cats.map(c=><option key={c}>{c}</option>)}</Sel>}
+      <Sel lbl="Type" val={f.itemType} onChange={v=>up("itemType",v)}>
+        <option value="">-- Select Type --</option>
+        {TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+      </Sel>
+      <F lbl="Qty On Hand" val={f.qty} onChange={v=>up("qty",v)} type="number"/>
+      <div style={{gridColumn:"1/-1"}}><UnitSel val={f.unit} onChange={v=>up("unit",v)}/></div>
+      <F lbl="Out ≤" val={f.outThreshold} onChange={v=>up("outThreshold",v)} type="number"/>
+      <F lbl="Low ≤" val={f.lowThreshold} onChange={v=>up("lowThreshold",v)} type="number"/>
+      <F lbl="On Order (qty)" val={f.onOrder} onChange={v=>up("onOrder",v)} type="number" ph="0" style={{gridColumn:"1/-1"}}/>
+      <F lbl="Vendor(s)" val={f.vendor} onChange={v=>up("vendor",v)} ph="Vendor A, Vendor B…" style={{gridColumn:"1/-1"}}/>
+      <F lbl="Notes" val={f.notes} onChange={v=>up("notes",v)} rows={2} style={{gridColumn:"1/-1"}}/>
+    </div>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}>
+      <button className="sb" onClick={onCancel}>Cancel</button>
+      <button className="btn-brand" style={{padding:"8px 18px",borderRadius:10}} onClick={()=>onSave(f)}>Save Item</button>
+    </div>
+  </div>;
+}
+function InvSection({section,items,onSave,onDel}){
+  const cats=section==="roofing"?RCATS:section==="bigrock"?BCATS:[];
+  const [cat,setCat]=useState("All");
+  const [edit,setEdit]=useState(null);
+  const [q,setQ]=useState("");
+  const [imp,setImp]=useState(false);
+  const [mv,setMv]=useState(null);
+  const [srt,setSrt]=useState("name-asc");
+  let list=items.filter(i=>i.section===section).filter(i=>(cat==="All"||i.category===cat)&&(!q||(i.name+(i.manufacturer||"")+(i.itemType||"")).toLowerCase().includes(q.toLowerCase())));
+  list=[...list].sort((a,b)=>({
+    "name-asc":()=>a.name.localeCompare(b.name),
+    "name-desc":()=>b.name.localeCompare(a.name),
+    "type":()=>(a.itemType||"").localeCompare(b.itemType||""),
+    "qty-asc":()=>(Number(a.qty)||0)-(Number(b.qty)||0),
+    "qty-desc":()=>(Number(b.qty)||0)-(Number(a.qty)||0)
+  }[srt]||(() => 0))());
+  const sv=async form=>{const id=edit==="new"?Date.now()+"":edit;await onSave({...form,id,section});setEdit(null);};
+  const qq=async item=>{const v=prompt("Update quantity on hand:",item.qty);if(v!==null)await onSave({...item,qty:v});};
+  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    {imp&&<CSVModal onClose={()=>setImp(false)} onImport={async rows=>{for(const r of rows)await onSave(r);}} defSec={section}/>}
+    {mv&&<MoveModal item={mv} onClose={()=>setMv(null)} onMove={async(item,dest)=>await onSave({...item,section:dest,category:""})}/>}
+    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="🔍 Search…" style={{flex:1,minWidth:100,border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",fontSize:16,outline:"none",background:"white"}}/>
+      <button className="btn-brand" style={{padding:"8px 12px",borderRadius:12}} onClick={()=>setEdit("new")}>+ Add</button>
+      <button onClick={()=>setImp(true)} style={{padding:"8px 12px",borderRadius:12,border:"1px solid #168c97",background:"white",color:"#168c97",fontWeight:600,cursor:"pointer"}}>📥 CSV</button>
+    </div>
+    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+      <span style={{fontSize:11,fontWeight:600,color:"#9ca3af",textTransform:"uppercase"}}>Sort:</span>
+      <select value={srt} onChange={e=>setSrt(e.target.value)} style={{border:"1px solid #e5e7eb",borderRadius:8,padding:"4px 10px",fontSize:12,outline:"none",background:"white"}}>
+        <option value="name-asc">Name A→Z</option>
+        <option value="name-desc">Name Z→A</option>
+        <option value="type">Type</option>
+        <option value="qty-asc">Qty Low→High</option>
+        <option value="qty-desc">Qty High→Low</option>
+      </select>
+    </div>
+    {cats.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6}}>{["All",...cats].map(c=><button key={c} className={"pill"+(cat===c?" on":"")} onClick={()=>setCat(c)}>{c}</button>)}</div>}
+    {edit==="new"&&<ItemForm section={section} onSave={sv} onCancel={()=>setEdit(null)}/>}
+    {list.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#9ca3af",fontSize:14}}>No items found.</div>}
+    {list.map(item=><div key={item.id} className={rcls(item)}>
+      {edit===item.id
+        ?<ItemForm section={section} item={item} onSave={sv} onCancel={()=>setEdit(null)}/>
+        :<div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:6,marginBottom:3}}>
+              <span style={{fontWeight:600,fontSize:14}}>{item.name}</span>
+              <SChip item={item}/>
+              {item.itemType&&<span className="chip c-type">{item.itemType}</span>}
+              {item.category&&<span style={{fontSize:11,background:"#f3f4f6",color:"#6b7280",padding:"1px 8px",borderRadius:999}}>{item.category}</span>}
+            </div>
+            {item.manufacturer&&<div style={{fontSize:12,color:B,fontWeight:600,marginBottom:2}}>🏭 {item.manufacturer}</div>}
+            <div style={{fontSize:13,color:"#6b7280"}}>On Hand: <b>{item.qty}</b> {item.unit}{(Number(item.onOrder)||0)>0&&<span style={{marginLeft:10,color:"#1e40af",fontSize:12,fontWeight:600}}>📦 {item.onOrder} on order</span>}</div>
+            {item.vendor&&<div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>Vendor: {item.vendor}</div>}
+            {item.notes&&<div style={{fontSize:11,color:"#9ca3af",marginTop:2,fontStyle:"italic"}}>{item.notes}</div>}
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
+            <div style={{display:"flex",gap:4}}>
+              <button className="sb" onClick={()=>setEdit(item.id)}>Edit</button>
+              <button className="sb" onClick={()=>qq(item)}>Qty</button>
+              <button className="sb d" onClick={()=>{if(confirm("Delete?"))onDel(item.id)}}>✕</button>
+            </div>
+            <button onClick={()=>setMv(item)} style={{fontSize:11,padding:"3px 8px",borderRadius:8,border:"1px solid #168c97",background:"white",color:"#168c97",cursor:"pointer",textAlign:"center"}}>↔ Move</button>
+          </div>
+        </div>
+      }
+    </div>)}
+  </div>;
+}
+function Vendors({vendors,onSave,onDel}){
+  const [edit,setEdit]=useState(null);
+  const [f,setF]=useState({name:"",contact:"",street:"",cityState:"",phone:"",email:"",manufacturers:"",notes:""});
+  const up=useCallback((k,v)=>setF(p=>({...p,[k]:v})),[]);
+  const sn=()=>{setF({name:"",contact:"",street:"",cityState:"",phone:"",email:"",manufacturers:"",notes:""});setEdit("new");};
+  const se=v=>{setF({...v});setEdit(v.id);};
+  const sv=async()=>{const id=edit==="new"?Date.now()+"":edit;await onSave({...f,id});setEdit(null);};
+  const VF=()=><div className="fbox" style={{marginBottom:12}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <F lbl="Vendor Name" val={f.name} onChange={v=>up("name",v)} style={{gridColumn:"1/-1"}}/>
+      <F lbl="Contact Name" val={f.contact} onChange={v=>up("contact",v)}/>
+      <F lbl="Phone" val={f.phone} onChange={v=>up("phone",v)}/>
+      <F lbl="Email" val={f.email} onChange={v=>up("email",v)} style={{gridColumn:"1/-1"}}/>
+      <F lbl="Street Address" val={f.street} onChange={v=>up("street",v)} style={{gridColumn:"1/-1"}}/>
+      <F lbl="City, State, ZIP" val={f.cityState} onChange={v=>up("cityState",v)} style={{gridColumn:"1/-1"}}/>
+      <F lbl="Manufacturers Carried" val={f.manufacturers} onChange={v=>up("manufacturers",v)} rows={2} style={{gridColumn:"1/-1"}}/>
+      <F lbl="Notes" val={f.notes} onChange={v=>up("notes",v)} rows={2} style={{gridColumn:"1/-1"}}/>
+    </div>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}>
+      <button className="sb" onClick={()=>setEdit(null)}>Cancel</button>
+      <button className="btn-brand" style={{padding:"8px 18px",borderRadius:10}} onClick={sv}>Save Vendor</button>
+    </div>
+  </div>;
+  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <span style={{fontSize:13,color:"#6b7280"}}>{vendors.length} vendor(s)</span>
+      <button className="btn-brand" style={{padding:"8px 16px",borderRadius:12}} onClick={sn}>+ Add Vendor</button>
+    </div>
+    {edit==="new"&&<VF/>}
+    {vendors.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#9ca3af",fontSize:14}}>No vendors yet.</div>}
+    {vendors.map(v=><div key={v.id} className="card">
+      <div style={{background:"linear-gradient(135deg,#0f6570,#168c97)",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{color:"white",fontWeight:700,fontSize:14}}>{v.name}</span>
+        <div style={{display:"flex",gap:6}}>
+          <button style={{fontSize:11,padding:"2px 8px",border:"1px solid rgba(255,255,255,.4)",borderRadius:6,background:"none",color:"white",cursor:"pointer"}} onClick={()=>se(v)}>Edit</button>
+          <button style={{fontSize:11,padding:"2px 8px",border:"1px solid rgba(255,255,255,.4)",borderRadius:6,background:"none",color:"white",cursor:"pointer"}} onClick={()=>{if(confirm("Delete vendor?"))onDel(v.id)}}>✕</button>
+        </div>
+      </div>
+      {edit===v.id&&<div style={{padding:12}}><VF/></div>}
+      {edit!==v.id&&<div style={{padding:"10px 14px",fontSize:13,display:"flex",flexDirection:"column",gap:3}}>
+        {v.contact&&<span>👤 {v.contact}</span>}
+        {v.phone&&<span>📞 {v.phone}</span>}
+        {v.email&&<span>✉ {v.email}</span>}
+        {v.street&&<span style={{color:"#6b7280",fontSize:12}}>{v.street}</span>}
+        {v.cityState&&<span style={{color:"#6b7280",fontSize:12}}>{v.cityState}</span>}
+        {v.manufacturers&&<span style={{fontSize:12,marginTop:4}}><b>Carries: </b>{v.manufacturers}</span>}
+      </div>}
+    </div>)}
+  </div>;
+}
+function PO({items,vendors,orders,onSaveOrder,onDelOrder}){
+  const [vnd,setVnd]=useState("");
+  const [pit,setPit]=useState([]);
+  const [pn,setPn]=useState("PO-"+new Date().getFullYear()+"-"+String(orders.length+1).padStart(3,"0"));
+  const [pd,setPd]=useState(new Date().toISOString().split("T")[0]);
+  const [jn,setJn]=useState(""); const [jo,setJo]=useState("");
+  const [st,setSt]=useState(""); const [sd,setSd]=useState("");
+  const [asap,setAsap]=useState(false);
+  const [fr,setFr]=useState("");
+  const [tax,setTax]=useState("taxable");
+  const [fral,setFral]=useState(true);
+  const [usr,setUsr]=useState("");
+  const [pne,setPne]=useState("");
+  const v=vendors.find(x=>x.id===vnd);
+  const u=USERS.find(x=>x.name===usr);
+  const fn=u?u.name.split(" ")[0]:"";
+  const need=items.filter(i=>["out","low","ord"].includes(gst(i)));
+  const add=i=>{if(!pit.find(p=>p.id===i.id))setPit(p=>[...p,{...i,orderQty:"",orderUnit:i.unit||"",unitPrice:"",desc:i.name}]);};
+  const rem=id=>setPit(p=>p.filter(x=>x.id!==id));
+  const upd=(id,k,val)=>setPit(p=>p.map(x=>x.id===id?{...x,[k]:val}:x));
+  const sub=pit.reduce((s,p)=>s+(Number(p.orderQty)||0)*(Number(p.unitPrice)||0),0);
+  const tot=sub+(Number(fr)||0);
+  const fmt=n=>n===0?"$ -":"$"+n.toFixed(2);
+  const sdsp=asap?"ASAP":sd;
+  const chkDup=num=>{const d=orders.some(o=>o.poNum===num);setPne(d?`PO # "${num}" already exists.`:"");return d;};
+  const poHtml=()=>{
+    const rows=Array.from({length:20}).map((_,i)=>{const p=pit[i];const e=p?(Number(p.orderQty)||0)*(Number(p.unitPrice)||0):0;return`<tr style="height:24px"><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px">${p?p.orderQty:""}</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px">${p?p.orderUnit:""}</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px">${p?p.desc:""}</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right">${p&&p.unitPrice?"$"+Number(p.unitPrice).toFixed(2):""}</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right">${p&&e>0?"$"+e.toFixed(2):"$ -"}</td></tr>`;}).join("");
+    return`<!DOCTYPE html><html><head><title>PO ${pn}</title><style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;padding:15px;font-size:12px}table{width:100%;border-collapse:collapse}.hb{background:#000;color:#fff;text-align:center;padding:10px;font-size:26px;font-weight:900;letter-spacing:1px;margin-bottom:6px}.sb2{background:#168c97;height:5px;margin-bottom:10px}th{background:#333;color:#fff;border:1px solid #ccc;padding:5px;font-size:11px;text-align:left}.tw{display:flex;justify-content:space-between;margin-bottom:8px}.pb{border:2px solid #000;padding:6px 14px;min-width:130px;text-align:center;font-size:18px;font-weight:bold}.fl{font-weight:bold;display:inline-block;width:80px}.ul{border-bottom:1px solid #000;display:inline-block;min-width:180px}.ft{text-align:center;margin-top:8px;font-size:9px;border-top:4px solid #168c97;padding-top:5px}.bt{display:flex;gap:20px;margin-top:8px;font-size:11px}</style></head><body>
+<div class="hb">FROST ROOFING</div><div class="sb2"></div>
+<div class="tw"><div><div><span class="fl">DATE:</span><span class="ul">&nbsp;${pd}</span></div><div style="margin:3px 0"><span class="fl">JOB NAME:</span><span class="ul">&nbsp;${jn}</span></div><div><span class="fl">JOB NO:</span><span class="ul">&nbsp;${jo}</span></div></div><div style="text-align:center"><div style="font-size:12px;font-weight:bold;margin-bottom:4px">PURCHASE ORDER NUMBER</div><div class="pb">${pn}</div></div></div>
+<div class="tw"><div style="flex:1"><div><span class="fl">TO:</span><span class="ul">&nbsp;${v?v.name:""}</span></div><div style="margin:3px 0"><span style="display:inline-block;width:80px"></span><span class="ul">&nbsp;${v?v.street||"":""}</span></div><div style="margin:3px 0"><span style="display:inline-block;width:80px"></span><span class="ul">&nbsp;${v?v.cityState||"":""}</span></div><div><span class="fl">ATTN:</span><span class="ul">&nbsp;${v?v.contact||"":""}</span></div></div><div style="flex:1;padding-left:20px"><div><span class="fl">SHIP TO:</span><span class="ul">&nbsp;${st}</span></div><div style="margin-top:28px"><span class="fl">SHIP DATE:</span><span class="ul">&nbsp;${sdsp}</span></div></div></div>
+<table style="margin-top:10px"><thead><tr><th style="width:50px">QTY</th><th style="width:60px">UNIT</th><th>DESCRIPTION</th><th style="width:80px">UNIT PRICE</th><th style="width:90px">EXTENSION</th></tr></thead><tbody>${rows}</tbody></table>
+<div style="display:flex;justify-content:flex-end;margin-top:4px"><table style="width:220px"><tr><td style="padding:3px 5px;font-size:11px;text-align:right">Subtotal</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right;width:90px">${fmt(sub)}</td></tr><tr><td style="padding:3px 5px;font-size:11px;text-align:right">Freight</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right">${fr?"$"+Number(fr).toFixed(2):""}</td></tr><tr><td style="padding:3px 5px;font-size:11px;text-align:right">Tax</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right">$ -</td></tr><tr><td style="padding:3px 5px;font-size:11px;font-weight:bold;text-align:right">Total</td><td style="border:2px solid #000;padding:3px 5px;font-size:11px;font-weight:bold;text-align:right">${fmt(tot)}</td></tr></table></div>
+<div style="font-size:10px;text-align:center;margin:8px 0">PURCHASE ORDER NUMBERS MUST APPEAR ON ALL PACKING SLIPS &amp; INVOICES.<br>ALL INVOICES TO BE SENT TO: PO BOX 1959, WAPAKONETA OH 45895</div>
+<div class="bt"><label><input type="checkbox" ${tax==="taxable"?"checked":""}> TAXABLE</label><label><input type="checkbox" ${tax==="exempt"?"checked":""}> EXEMPT</label><label><input type="checkbox" ${fral?"checked":""}> FREIGHT ALLOWED</label><span>BY: ${fn||"___________________________"}</span></div>
+<div class="ft">FROST ROOFING INC. &bull; PO BOX 1959, WAPAKONETA, OH 45895 &bull; PH: (419) 739-2701 &bull; EOE EMPLOYER<br>WWW.FROST-ROOFING.COM &bull; INFO@FROST-ROOFING.COM</div>
+<script>window.print();<\/script></body></html>`;
+  };
+  const mkOrder=()=>({id:Date.now()+"",poNum:pn,poDate:pd,vendorId:vnd,vendorName:v?.name||"Unknown",jobName:jn,jobNo:jo,shipTo:st,shipDate:sdsp,items:pit.map(p=>({...p})),subtotal:sub,total:tot,status:"Sent",createdBy:usr||"",createdAt:new Date().toISOString()});
+  const doPrint=async()=>{if(chkDup(pn))return;const w=window.open("","_blank");if(w)w.document.write(poHtml());await onSaveOrder(mkOrder());};
+  const doEmail=async()=>{
+    if(!u){alert("Please select a person to email to.");return;}
+    if(chkDup(pn))return;
+    const sub2=encodeURIComponent(`Purchase Order ${pn} - ${v?v.name:"Vendor"}`);
+    const body=encodeURIComponent([`Hi ${fn},`,``,`PO Number: ${pn}`,`Date: ${pd}`,`Vendor: ${v?v.name:""}`,jn?`Job Name: ${jn}`:"",jo?`Job No: ${jo}`:"",`Ship Date: ${sdsp||"TBD"}`,``,`Items:`,...pit.map(p=>`  - ${p.desc||p.name}: ${p.orderQty} ${p.orderUnit}${p.unitPrice?" @ $"+Number(p.unitPrice).toFixed(2)+" ea":""}`),``,`Subtotal: ${fmt(sub)}`,fr?`Freight: $${Number(fr).toFixed(2)}`:"",`Total: ${fmt(tot)}`].filter(Boolean).join("\n"));
+    window.location.href=`mailto:${u.email}?subject=${sub2}&body=${body}`;
+    await onSaveOrder(mkOrder());
+  };
+  const dis=pit.length===0||!vnd||!!pne;
+  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div className="card">
+      <div className="sec-hdr">Purchase Order Details</div>
+      <div style={{padding:14,display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div style={{gridColumn:"1/-1"}}>
+          <F lbl="PO Number" val={pn} onChange={v=>{setPn(v);setPne("");}}/>
+          {pne&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{pne}</p>}
+        </div>
+        <F lbl="Date" val={pd} onChange={setPd} type="date"/>
+        <F lbl="Job Name" val={jn} onChange={setJn}/>
+        <F lbl="Job No" val={jo} onChange={setJo}/>
+        <div style={{gridColumn:"1/-1"}}><Sel lbl="Vendor (TO)" val={vnd} onChange={setVnd}><option value="">-- Select Vendor --</option>{vendors.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</Sel></div>
+        <F lbl="Ship To" val={st} onChange={setSt}/>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <F lbl="Ship Date" val={asap?"":sd} onChange={setSd} type="date" disabled={asap}/>
+          <label className="cr" style={{marginTop:2}}>
+            <input type="checkbox" checked={asap} onChange={e=>{setAsap(e.target.checked);if(e.target.checked)setSd("");}} style={{width:18,height:18,flexShrink:0,cursor:"pointer"}}/>
+            ASAP
+          </label>
+        </div>
+        <div style={{gridColumn:"1/-1"}}>
+          <Sel lbl="Prepared By / Email To" val={usr} onChange={setUsr}><option value="">-- Select Person --</option>{USERS.map(u=><option key={u.name} value={u.name}>{u.name}</option>)}</Sel>
+          {usr&&<p style={{fontSize:11,color:B,marginTop:4}}>✉ {USERS.find(u=>u.name===usr)?.email}</p>}
+        </div>
+        <div style={{gridColumn:"1/-1",display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
+          <span style={{fontSize:11,fontWeight:600,color:"#6b7280",textTransform:"uppercase"}}>Tax:</span>
+          <label className="cr">
+            <input type="radio" name="po_tax" value="taxable" checked={tax==="taxable"} onChange={()=>setTax("taxable")} style={{width:18,height:18,flexShrink:0,cursor:"pointer"}}/>
+            Taxable
+          </label>
+          <label className="cr">
+            <input type="radio" name="po_tax" value="exempt" checked={tax==="exempt"} onChange={()=>setTax("exempt")} style={{width:18,height:18,flexShrink:0,cursor:"pointer"}}/>
+            Exempt
+          </label>
+          <label className="cr" style={{marginLeft:8}}>
+            <input type="checkbox" checked={fral} onChange={e=>setFral(e.target.checked)} style={{width:18,height:18,flexShrink:0,cursor:"pointer"}}/>
+            Freight Allowed
+          </label>
+        </div>
+      </div>
+    </div>
+    {need.length>0&&<div className="card">
+      <div style={{background:"#fef9c3",padding:"8px 14px",fontSize:13,fontWeight:600,color:"#92400e"}}>⚠ Low / Out / On Order — tap to add</div>
+      <div style={{padding:"10px 14px",display:"flex",flexWrap:"wrap",gap:6}}>
+        {need.map(i=><button key={i.id} onClick={()=>add(i)} disabled={!!pit.find(p=>p.id===i.id)} style={{fontSize:12,padding:"4px 10px",borderRadius:8,border:"1px solid",cursor:"pointer",borderColor:pit.find(p=>p.id===i.id)?"#e5e7eb":B,background:"white",color:pit.find(p=>p.id===i.id)?"#9ca3af":B}}>{i.name} ({Number(i.qty)||0} {i.unit})</button>)}
+      </div>
+    </div>}
+    <div className="card">
+      <div className="sec-hdr" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        Line Items
+        <button style={{fontSize:11,padding:"3px 10px",border:"1px solid rgba(255,255,255,.4)",borderRadius:6,background:"none",color:"white",cursor:"pointer"}} onClick={()=>{const n=prompt("Item description:");if(n)setPit(p=>[...p,{id:"c"+Date.now(),name:n,orderQty:"",orderUnit:"",unitPrice:"",desc:n}]);}}>+ Custom</button>
+      </div>
+      <div style={{padding:"10px 14px",display:"flex",flexDirection:"column",gap:8}}>
+        {pit.length===0&&<p style={{textAlign:"center",color:"#9ca3af",fontSize:13,padding:"14px 0"}}>No items added yet.</p>}
+        {pit.map(p=><div key={p.id} style={{border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 10px",background:"#f9fafb"}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+            <span style={{fontWeight:600,fontSize:13}}>{p.name}</span>
+            <button className="sb d" onClick={()=>rem(p.id)}>✕</button>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:6}}>
+            <F lbl="Qty" val={p.orderQty} onChange={val=>upd(p.id,"orderQty",val)} type="number"/>
+            <UnitSel val={p.orderUnit} onChange={val=>upd(p.id,"orderUnit",val)}/>
+            <F lbl="Unit Price $" val={p.unitPrice} onChange={val=>upd(p.id,"unitPrice",val)} type="number"/>
+          </div>
+          <F lbl="Description" val={p.desc} onChange={val=>upd(p.id,"desc",val)}/>
+        </div>)}
+        {pit.length>0&&<div style={{borderTop:"1px solid #e5e7eb",paddingTop:10,display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
+          <span style={{fontSize:13,color:"#6b7280"}}>Subtotal: <b>{fmt(sub)}</b></span>
+          <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"#6b7280"}}>Freight: $<input type="number" value={fr} onChange={e=>setFr(e.target.value)} placeholder="0.00" style={{width:80,textAlign:"right",border:"1px solid #e5e7eb",borderRadius:8,padding:"4px 8px",fontSize:13,outline:"none",background:"white"}}/></div>
+          <span style={{fontSize:16,fontWeight:700,color:B}}>Total: {fmt(tot)}</span>
+        </div>}
+      </div>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <button className="btn-brand" style={{padding:14,borderRadius:14,fontSize:14}} disabled={dis} onClick={doPrint}>🖨 Print & Save</button>
+      <button style={{padding:14,borderRadius:14,fontSize:14,border:"2px solid #168c97",background:"white",color:"#168c97",fontWeight:700,cursor:"pointer",opacity:(dis||!usr)?0.4:1,WebkitAppearance:"none"}} disabled={dis||!usr} onClick={doEmail}>✉ Email PO</button>
+    </div>
+    <div className="card">
+      <div className="sec-hdr" style={{display:"flex",justifyContent:"space-between"}}>Recent Orders<span style={{fontSize:12,opacity:.8}}>{orders.length} total</span></div>
+      <div style={{padding:12,display:"flex",flexDirection:"column",gap:8,maxHeight:280,overflowY:"auto"}}>
+        {orders.length===0&&<p style={{textAlign:"center",color:"#9ca3af",fontSize:13,padding:"10px 0"}}>No orders yet.</p>}
+        {[...orders].reverse().map(o=><div key={o.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:"8px 10px",border:"1px solid #e5e7eb",borderRadius:10,background:"#f9fafb"}}>
+          <div><span style={{fontWeight:700,fontSize:13,color:B}}>{o.poNum}</span><span style={{fontSize:11,color:"#9ca3af",marginLeft:8}}>{o.poDate}</span><p style={{fontSize:12,color:"#6b7280"}}>{o.vendorName}{o.jobName?" — "+o.jobName:""}</p></div>
+          <button className="sb d" onClick={()=>{if(confirm(`Delete PO ${o.poNum}?`))onDelOrder(o.id)}}>✕ Del</button>
+        </div>)}
+      </div>
+    </div>
+  </div>;
+}
+function History({orders,onUpdate,onDel}){
+  const [exp,setExp]=useState(null);
+  const sc={Sent:{background:"#dbeafe",color:"#1e40af"},Received:{background:"#d1fae5",color:"#065f46"},Partial:{background:"#fef9c3",color:"#92400e"},Cancelled:{background:"#fee2e2",color:"#991b1b"}};
+  return <div style={{display:"flex",flexDirection:"column",gap:10}}>
+    <p style={{fontSize:13,color:"#6b7280"}}>{orders.length} order(s)</p>
+    {orders.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#9ca3af",fontSize:14}}>No orders yet.</div>}
+    {[...orders].reverse().map(o=><div key={o.id} className="card">
+      <button onClick={()=>setExp(exp===o.id?null:o.id)} style={{width:"100%",padding:"10px 14px",border:"none",background:"none",cursor:"pointer",textAlign:"left"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+          <div><span style={{fontWeight:700,fontSize:14,color:B}}>{o.poNum}</span><span style={{marginLeft:8,fontSize:12,color:"#9ca3af"}}>{o.poDate}</span>{o.jobName&&<span style={{marginLeft:8,fontSize:12,color:"#9ca3af"}}>— {o.jobName}</span>}<p style={{fontSize:12,color:"#6b7280",marginTop:2}}>{o.vendorName}</p>{o.createdBy&&<p style={{fontSize:11,color:"#9ca3af"}}>By: {o.createdBy}</p>}</div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <select value={o.status} onClick={e=>e.stopPropagation()} onChange={e=>onUpdate(orders.map(x=>x.id===o.id?{...x,status:e.target.value}:x))} style={{fontSize:11,padding:"2px 6px",borderRadius:999,border:"none",fontWeight:700,cursor:"pointer",...(sc[o.status]||{}),width:"auto"}}>
+              {["Sent","Received","Partial","Cancelled"].map(s=><option key={s}>{s}</option>)}
+            </select>
+            <span style={{color:"#9ca3af",fontSize:12}}>{exp===o.id?"▲":"▼"}</span>
+          </div>
+        </div>
+      </button>
+      {exp===o.id&&<div style={{borderTop:"1px solid #e5e7eb",padding:"10px 14px"}}>
+        {o.jobNo&&<p style={{fontSize:12,color:"#6b7280",marginBottom:4}}>Job No: {o.jobNo}</p>}
+        {o.shipDate&&<p style={{fontSize:12,color:"#6b7280",marginBottom:8}}>Ship: {o.shipDate}</p>}
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          <thead><tr>{["Description","Qty","Unit","Ext"].map(h=><th key={h} style={{background:B,color:"white",padding:"4px 6px",textAlign:h==="Ext"?"right":h==="Qty"||h==="Unit"?"center":"left"}}>{h}</th>)}</tr></thead>
+          <tbody>{o.items.map((it,i)=><tr key={i} style={{borderBottom:"1px solid #f3f4f6"}}><td style={{padding:"3px 6px"}}>{it.desc||it.name}</td><td style={{padding:"3px 6px",textAlign:"center"}}>{it.orderQty}</td><td style={{padding:"3px 6px",textAlign:"center"}}>{it.orderUnit}</td><td style={{padding:"3px 6px",textAlign:"right"}}>{it.unitPrice?"$"+((Number(it.orderQty)||0)*(Number(it.unitPrice)||0)).toFixed(2):"-"}</td></tr>)}</tbody>
+        </table>
+        <div style={{textAlign:"right",marginTop:8,fontWeight:700,color:B,fontSize:14}}>Total: ${o.total.toFixed(2)}</div>
+        <button onClick={()=>{if(confirm("Delete order?"))onDel(o.id)}} style={{marginTop:8,fontSize:12,color:"#ef4444",background:"none",border:"none",cursor:"pointer"}}>🗑 Delete</button>
+      </div>}
+    </div>)}
+  </div>;
+}
+function Settings({settings,onSave,items,onSaveItem}){
+  const [f,setF]=useState({...settings});
+  const up=useCallback((k,v)=>setF(p=>({...p,[k]:v})),[]);
+  const [fs,setFs]=useState("all");
+  const list=items.filter(i=>{const s=gst(i);return fs==="all"||s===fs;});
+  return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <div className="card">
+      <div className="sec-hdr">Company Info</div>
+      <div style={{padding:14,display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <F lbl="Company Name" val={f.companyName} onChange={v=>up("companyName",v)} style={{gridColumn:"1/-1"}}/>
+        <F lbl="Street / PO Box" val={f.companyAddress} onChange={v=>up("companyAddress",v)} style={{gridColumn:"1/-1"}}/>
+        <F lbl="City, State, ZIP" val={f.companyCity} onChange={v=>up("companyCity",v)}/>
+        <F lbl="Phone" val={f.companyPhone} onChange={v=>up("companyPhone",v)}/>
+        <F lbl="Email" val={f.companyEmail} onChange={v=>up("companyEmail",v)} style={{gridColumn:"1/-1"}}/>
+      </div>
+      <div style={{padding:"0 14px 14px"}}><button className="btn-brand" style={{padding:"8px 18px",borderRadius:10}} onClick={()=>onSave(f)}>Save</button></div>
+    </div>
+    <div className="card">
+      <div className="sec-hdr">Item Thresholds</div>
+      <div style={{padding:12,display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {["all","low","out","ord"].map(s=><button key={s} className={"pill"+(fs===s?" on":"")} onClick={()=>setFs(s)}>{({all:"All",low:"Low",out:"Out",ord:"Ordered"})[s]}</button>)}
+        </div>
+        <div style={{maxHeight:300,overflowY:"auto",display:"flex",flexDirection:"column",gap:6}}>
+          {list.map(item=><div key={item.id} className={"ir "+{out:"r-out",low:"r-low",ok:"r-ok",ord:"r-ord"}[gst(item)]} style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:8,fontSize:13}}>
+            <span style={{flex:1,fontWeight:600,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</span>
+            <SChip item={item}/>
+            <span style={{fontSize:11,color:"#9ca3af",textTransform:"capitalize"}}>{item.section}</span>
+            <span style={{fontSize:12,color:"#6b7280"}}>Qty:{item.qty}</span>
+            <span style={{fontSize:11,color:"#9ca3af"}}>Out≤</span>
+            <input type="number" value={item.outThreshold||0} onChange={e=>onSaveItem({...item,outThreshold:e.target.value})} style={{width:50,padding:"2px 4px",fontSize:12,border:"1px solid #e5e7eb",borderRadius:6,outline:"none",background:"white"}}/>
+            <span style={{fontSize:11,color:"#9ca3af"}}>Low≤</span>
+            <input type="number" value={item.lowThreshold||5} onChange={e=>onSaveItem({...item,lowThreshold:e.target.value})} style={{width:50,padding:"2px 4px",fontSize:12,border:"1px solid #e5e7eb",borderRadius:6,outline:"none",background:"white"}}/>
+          </div>)}
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+// ── LOGIN SCREEN ─────────────────────────────────────────────────────────────
+function LoginScreen({onLogin,error}){
+  const [loading,setLoading]=useState(false);
+  const doLogin=async()=>{
+    setLoading(true);
+    try{
+      const provider=new firebase.auth.GoogleAuthProvider();
+      await auth.signInWithPopup(provider);
+    }catch(e){
+      setLoading(false);
+    }
+  };
+  return <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f6570,#168c97)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+    <div style={{background:"white",borderRadius:24,padding:36,width:"100%",maxWidth:380,boxShadow:"0 8px 40px rgba(0,0,0,.2)",textAlign:"center"}}>
+      <div style={{marginBottom:20}}>
+        <div style={{background:"linear-gradient(135deg,#0f6570,#168c97)",borderRadius:16,padding:"16px 20px",marginBottom:16,display:"inline-block"}}>
+          <Logo h={44}/>
+        </div>
+        <h1 style={{fontSize:20,fontWeight:800,color:"#111827",marginBottom:6}}>Inventory Manager</h1>
+        <p style={{fontSize:14,color:"#6b7280"}}>Sign in to access Frost Roofing inventory</p>
+      </div>
+      {error&&<div style={{background:"#fee2e2",color:"#b91c1c",borderRadius:10,padding:"10px 14px",fontSize:13,marginBottom:16,textAlign:"left"}}>⚠ {error}</div>}
+      <button onClick={doLogin} disabled={loading} style={{width:"100%",padding:"14px",borderRadius:14,border:"1px solid #e5e7eb",background:"white",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:12,fontSize:15,fontWeight:600,color:"#374151",boxShadow:"0 1px 4px rgba(0,0,0,.1)",opacity:loading?0.6:1}}>
+        {loading
+          ? <><div style={{width:20,height:20,border:"2px solid #e5e7eb",borderTopColor:B,borderRadius:"50%",animation:"sp .8s linear infinite"}}/> Signing in…</>
+          : <><svg width="20" height="20" viewBox="0 0 48 48"><path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 29.8 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/><path fill="#34A853" d="M6.3 14.7l7 5.1C15.1 16.1 19.2 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.7 7.4 6.3 14.7z"/><path fill="#FBBC05" d="M24 46c5.5 0 10.5-1.9 14.3-5l-6.6-5.4C29.8 37 27 38 24 38c-5.8 0-10.7-3.9-12.4-9.3l-7 5.4C8 40.5 15.4 46 24 46z"/><path fill="#EA4335" d="M44.5 20H24v8.5h11.8c-.8 2.4-2.3 4.4-4.3 5.8l6.6 5.4C42.1 36.2 45 30.6 45 24c0-1.3-.2-2.7-.5-4z"/></svg>
+            Sign in with Google</>
+        }
+      </button>
+      <p style={{fontSize:11,color:"#9ca3af",marginTop:16}}>Access restricted to authorized Frost Roofing accounts</p>
+    </div>
+  </div>;
+}
+
+// ── MAIN APP ─────────────────────────────────────────────────────────────────
+function App(){
+  const [user,setUser]=useState(undefined); // undefined = checking, null = signed out
+  const [authErr,setAuthErr]=useState("");
+  const [items,setItems]=useState([]);
+  const [vendors,setVendors]=useState([]);
+  const [orders,setOrders]=useState([]);
+  const [settings,setSettings]=useState(DSET);
+  const [loading,setLoading]=useState(true);
+  const [page,setPage]=useState("home");
+  const [menu,setMenu]=useState(false);
+  const [saving,setSaving]=useState(false);
+
+  // Listen for auth state changes
+  useEffect(()=>{
+    const unsub=auth.onAuthStateChanged(u=>{
+      if(!u){setUser(null);return;}
+      const email=u.email||"";
+      const allowed=ALLOWED_EMAILS.map(e=>e.toLowerCase().trim());
+      if(allowed.includes(email.toLowerCase())){
+        setUser(u);
+        setAuthErr("");
+      } else {
+        auth.signOut();
+        setUser(null);
+        setAuthErr(`Access denied for ${email}. Contact Pat Boedicker to request access.`);
+      }
+    });
+    return()=>unsub();
+  },[]);
+
+  // Only subscribe to Firestore when authenticated
+  useEffect(()=>{
+    if(!user) return;
+    const uns=[];
+    uns.push(FS.watchCol("items",setItems));
+    uns.push(FS.watchCol("vendors",setVendors));
+    uns.push(FS.watchCol("orders",setOrders));
+    uns.push(FS.watchDoc("settings","main",d=>{if(d)setSettings(d);setLoading(false);}));
+    return()=>uns.forEach(u=>u());
+  },[user]);
+
+  const w=async fn=>{setSaving(true);try{await fn();}finally{setSaving(false);}};
+  const si=item=>w(()=>FS.save("items",item.id,item));
+  const di=id=>w(()=>FS.del("items",id));
+  const sv=v=>w(()=>FS.save("vendors",v.id,v));
+  const dv=id=>w(()=>FS.del("vendors",id));
+  const so=o=>w(()=>FS.save("orders",o.id,o));
+  const dord=id=>w(()=>FS.del("orders",id));
+  const updOrds=async arr=>{await Promise.all([...arr.map(o=>FS.save("orders",o.id,o)),...orders.filter(o=>!arr.find(x=>x.id===o.id)).map(o=>FS.del("orders",o.id))]);};
+  const ss=s=>w(()=>FS.save("settings","main",s));
+
+  const sum=sec=>{const s=items.filter(i=>i.section===sec);return{total:s.length,out:s.filter(i=>gst(i)==="out").length,low:s.filter(i=>gst(i)==="low").length,ord:s.filter(i=>gst(i)==="ord").length};};
+  const tOut=items.filter(i=>gst(i)==="out").length;
+  const tLow=items.filter(i=>gst(i)==="low").length;
+  const tOrd=items.filter(i=>gst(i)==="ord").length;
+
+  // Still checking auth state
+  if(user===undefined) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",flexDirection:"column",gap:16,background:"#eef6f7"}}><div className="spin"/><p style={{color:B,fontWeight:600}}>Connecting to Frost Roofing…</p></div>;
+
+  // Not signed in
+  if(!user) return <LoginScreen onLogin={()=>{}} error={authErr}/>;
+
+  // Signed in but data loading
+  if(loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",flexDirection:"column",gap:16,background:"#eef6f7"}}><div className="spin"/><p style={{color:B,fontWeight:600}}>Loading inventory…</p></div>;
+
+  const SC=({sec,lbl,ic,gr,click})=>{
+    const s=sum(sec);
+    return <button onClick={click} className="sc">
+      <div style={{background:gr||"linear-gradient(135deg,#0f6570,#168c97)",padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
+        <span style={{fontSize:32}}>{ic}</span>
+        <div><div style={{color:"white",fontWeight:700,fontSize:15}}>{lbl}</div><div style={{color:"rgba(255,255,255,.75)",fontSize:12}}>{s.total} items</div></div>
+      </div>
+      <div style={{background:"white",padding:"6px 14px",display:"flex",gap:6,flexWrap:"wrap"}}>
+        {s.out>0&&<span className="chip c-out">{s.out} Out</span>}
+        {s.low>0&&<span className="chip c-low">{s.low} Low</span>}
+        {s.ord>0&&<span className="chip c-ord">{s.ord} Ordered</span>}
+        {!s.out&&!s.low&&!s.ord&&<span className="chip c-ok">✓ All Stocked</span>}
+      </div>
+    </button>;
+  };
+
+  return <div style={{minHeight:"100vh",background:"#eef6f7",maxWidth:640,margin:"0 auto"}}>
+    <div className="hdr">
+      <div style={{padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <button onClick={()=>setMenu(m=>!m)} style={{background:"none",border:"none",color:"white",fontSize:24,cursor:"pointer",padding:4,WebkitAppearance:"none"}}>☰</button>
+        <Logo h={44}/>
+        <div style={{width:36,display:"flex",justifyContent:"flex-end"}}>{saving&&<div style={{width:16,height:16,border:"2px solid rgba(255,255,255,.4)",borderTopColor:"white",borderRadius:"50%",animation:"sp .8s linear infinite"}}/>}</div>
+      </div>
+      <div style={{padding:"0 6px 8px 16px",color:"rgba(255,255,255,.8)",fontSize:12,fontWeight:500,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span>{PAGES[page]}</span>
+        <button onClick={()=>auth.signOut()} style={{background:"none",border:"1px solid rgba(255,255,255,.4)",borderRadius:8,color:"rgba(255,255,255,.85)",fontSize:11,padding:"2px 10px",cursor:"pointer"}}>Sign Out</button>
+      </div>
+    </div>
+    {menu&&<div className="ov" onClick={()=>setMenu(false)}>
+      <div className="drw" onClick={e=>e.stopPropagation()}>
+        <div style={{background:"linear-gradient(135deg,#0f6570,#168c97)",padding:"18px 20px"}}><Logo h={44}/></div>
+        <div style={{padding:"10px 20px",fontSize:12,color:"#6b7280",background:"#f9fafb",borderBottom:"1px solid #e5f4f5"}}>Signed in as<br/><b style={{color:"#374151"}}>{user.email}</b></div>
+        {ALLNAV.map(n=><button key={n.id} className={"di"+(page===n.id?" on":"")} onClick={()=>{setPage(n.id);setMenu(false);}}>
+          <span style={{fontSize:18}}>{n.ic}</span>{n.lb}
+          {n.id==="history"&&orders.length>0&&<span className="bc" style={{marginLeft:"auto"}}>{orders.length}</span>}
+        </button>)}
+        <button className="di" style={{marginTop:"auto",color:"#ef4444"}} onClick={()=>auth.signOut()}>🚪 Sign Out</button>
+      </div>
+    </div>}
+    <div className="page">
+      {page==="home"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+        {(tOut>0||tLow>0||tOrd>0)&&<div style={{borderRadius:16,overflow:"hidden",boxShadow:"0 2px 8px rgba(0,0,0,.08)"}}>
+          <div style={{background:"#92400e",color:"white",padding:"8px 14px",fontWeight:700,fontSize:13}}>⚠ Inventory Alert</div>
+          <div style={{background:"#fffbeb",padding:"10px 14px",fontSize:13,color:"#374151",display:"flex",flexDirection:"column",gap:3}}>
+            {tOut>0&&<div>🔴 <b>{tOut}</b> item(s) out of stock</div>}
+            {tLow>0&&<div>🟡 <b>{tLow}</b> item(s) running low</div>}
+            {tOrd>0&&<div>🔵 <b>{tOrd}</b> item(s) on order</div>}
+          </div>
+        </div>}
+        <SC sec="roofing" lbl="Roofing Materials" ic="📦" click={()=>setPage("roofing")}/>
+        <SC sec="bigrock" lbl="Big Rock Supply" ic="🏗" click={()=>setPage("bigrock")}/>
+        <SC sec="misc" lbl="Misc" ic="📋" gr="linear-gradient(135deg,#4b5563,#6b7280)" click={()=>setPage("misc")}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+          {[{id:"vendors",ic:"🏢",lb:"Vendors"},{id:"po",ic:"📄",lb:"Create PO"},{id:"history",ic:"🕐",lb:"Orders"}].map(n=><button key={n.id} onClick={()=>setPage(n.id)} style={{borderRadius:14,padding:"14px 8px",background:"white",border:"1px solid #e5f4f5",boxShadow:"0 2px 8px rgba(0,0,0,.07)",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4,WebkitAppearance:"none"}}>
+            <span style={{fontSize:26}}>{n.ic}</span>
+            <span style={{fontSize:12,fontWeight:600,color:"#374151"}}>{n.lb}</span>
+            {n.id==="history"&&orders.length>0&&<span className="bc">{orders.length}</span>}
+          </button>)}
+        </div>
+      </div>}
+      {page==="roofing"&&<InvSection section="roofing" items={items} onSave={si} onDel={di}/>}
+      {page==="bigrock"&&<InvSection section="bigrock" items={items} onSave={si} onDel={di}/>}
+      {page==="misc"&&<InvSection section="misc" items={items} onSave={si} onDel={di}/>}
+      {page==="vendors"&&<Vendors vendors={vendors} onSave={sv} onDel={dv}/>}
+      {page==="po"&&<PO items={items} vendors={vendors} orders={orders} onSaveOrder={so} onDelOrder={dord}/>}
+      {page==="history"&&<History orders={orders} onUpdate={updOrds} onDel={dord}/>}
+      {page==="settings"&&<Settings settings={settings} onSave={ss} items={items} onSaveItem={si}/>}
+    </div>
+    <div className="bnav">
+      {NAV.map(n=><button key={n.id} className={"nb"+(page===n.id?" on":"")} onClick={()=>setPage(n.id)}>
+        <span className="ic">{n.ic}</span>{n.lb}
+      </button>)}
+    </div>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
