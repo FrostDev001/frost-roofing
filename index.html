@@ -139,6 +139,7 @@ loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
 const {useState,useEffect,useRef,useCallback} = React;
 const FS=window.FS, auth=window.auth;
 const B="#168c97",BD="#0f6570";
+const APP_VERSION="Ver 1.101";
 const RCATS=["EPDM","TPO","PVC","Mod/Built Up","Metal","Other"];
 const BCATS=["PPE","Roofing Tools","Roofing Supplies","Other"];
 const UNITS=["Roll","Each","Foot","Square Foot","Gallon","Pail","Other"];
@@ -968,7 +969,10 @@ function App(){
       <div style={{padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <button onClick={()=>setMenu(m=>!m)} style={{background:"none",border:"none",color:"white",fontSize:24,cursor:"pointer",padding:4,WebkitAppearance:"none"}}>☰</button>
         <Logo h={44}/>
-        <div style={{width:36,display:"flex",justifyContent:"flex-end"}}>{saving&&<div style={{width:16,height:16,border:"2px solid rgba(255,255,255,.4)",borderTopColor:"white",borderRadius:"50%",animation:"sp .8s linear infinite"}}/>}</div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2,width:52}}>
+          {saving&&<div style={{width:16,height:16,border:"2px solid rgba(255,255,255,.4)",borderTopColor:"white",borderRadius:"50%",animation:"sp .8s linear infinite"}}/>}
+          <span style={{fontSize:9,color:"rgba(255,255,255,.45)",fontWeight:500}}>{APP_VERSION}</span>
+        </div>
       </div>
       <div style={{padding:"0 6px 8px 16px",color:"rgba(255,255,255,.8)",fontSize:12,fontWeight:500,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <span>{PAGES[page]}</span>
@@ -996,6 +1000,18 @@ function App(){
             {tOrd>0&&<div>🔵 <b>{tOrd}</b> item(s) on order</div>}
           </div>
         </div>}
+        <div style={{background:"white",borderRadius:14,padding:"10px 16px",border:"1px solid #e5f4f5",boxShadow:"0 2px 8px rgba(0,0,0,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#0f6570,#168c97)",display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:16,flexShrink:0}}>
+              {user.email[0].toUpperCase()}
+            </div>
+            <div>
+              <div style={{fontSize:11,color:"#9ca3af",fontWeight:500}}>Signed in as</div>
+              <div style={{fontSize:13,fontWeight:700,color:"#374151"}}>{user.email}</div>
+            </div>
+          </div>
+          <button onClick={()=>auth.signOut()} style={{fontSize:11,padding:"4px 10px",border:"1px solid #e5e7eb",borderRadius:8,background:"white",color:"#9ca3af",cursor:"pointer"}}>Sign Out</button>
+        </div>
         <SC sec="roofing" lbl="Roofing Materials" ic="📦" click={()=>setPage("roofing")}/>
         <SC sec="bigrock" lbl="Big Rock Supply" ic="🏗" click={()=>setPage("bigrock")}/>
         <SC sec="misc" lbl="Misc" ic="📋" gr="linear-gradient(135deg,#4b5563,#6b7280)" click={()=>setPage("misc")}/>
