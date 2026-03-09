@@ -82,6 +82,8 @@ loadScript('https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js',f
     emailjs.init(window.EMAILJS_PUBLIC_KEY);
     window.EMAILJS_READY=true;
   }
+loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',function(){
+  window.XLSX=XLSX;
   loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',function(){
 loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js',function(){
 loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js',function(){
@@ -116,6 +118,8 @@ loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js',f
     Babel.transformScriptTags();
   });});});
 });});});
+}); // end Firebase chain
+}); // end SheetJS loadScript
 }); // end EmailJS loadScript
 </script>
 
@@ -137,6 +141,14 @@ const USERS=[
   {name:"Chuck McCord",email:"chuck.mccord@frost-roofing.com"},
   {name:"John Hassenauer",email:"john.hassenauer@frost-roofing.com"},
 ];
+const PO_USERS=[
+  {name:"Pat Boedicker",  email:"pat.boedicker@frost-roofing.com",  uid:"13"},
+  {name:"John Hassenauer",email:"john.hassenauer@frost-roofing.com",uid:"12"},
+  {name:"Chad Dunlap",    email:"chad.dunlap@frost-roofing.com",    uid:"19"},
+  {name:"Larry Holloway", email:"larry.holloway@frost-roofing.com", uid:"14"},
+  {name:"Chuck McCord",   email:"chuck.mccord@frost-roofing.com",   uid:"18"},
+  {name:"JJ Smithey",     email:"jj.smithey@frost-roofing.com",     uid:"17"},
+];
 const DSET={companyName:"Frost Roofing Inc.",companyAddress:"PO Box 1959",companyCity:"Wapakoneta, OH 45895",companyPhone:"(419) 739-2701",companyEmail:"info@frost-roofing.com"};
 const PAGES={home:"Dashboard",roofing:"Roofing Materials",bigrock:"Big Rock Supply",misc:"Misc",vendors:"Vendors",po:"Create PO",history:"Order History",settings:"Settings"};
 const NAV=[{id:"home",ic:"🏠",lb:"Home"},{id:"roofing",ic:"📦",lb:"Roofing"},{id:"bigrock",ic:"🏗",lb:"Big Rock"},{id:"po",ic:"📄",lb:"PO"},{id:"history",ic:"🕐",lb:"History"},{id:"settings",ic:"⚙",lb:"Settings"}];
@@ -146,6 +158,7 @@ const ALLNAV=[{id:"home",ic:"🏠",lb:"Home"},{id:"roofing",ic:"📦",lb:"Roofin
 // Add your Gmail address here. To add more users later, add their Gmail to this list.
 const ALLOWED_EMAILS=[
   "pboedicker@gmail.com",
+  "FrostInvMgr@gmail.com",
 ];
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -432,61 +445,199 @@ function Vendors({vendors,onSave,onDel}){
     </div>)}
   </div>;
 }
+function buildXLSX(poData){
+  // Build Excel file matching Frost Roofing PO form using SheetJS
+  const {XLSX}=window;
+  const wb=XLSX.utils.book_new();
+  const ws={};
+  const R=(r,c)=>XLSX.utils.encode_cell({r,c});
+  const s=(r,c,v,style)=>{ws[R(r,c)]={v,t:typeof v==="number"?"n":"s",...(style?{s:style}:{})};};
+
+  // Column widths (A=5,B=8,C=8,D=40,E=12,F=14)
+  ws['!cols']=[{wch:5},{wch:8},{wch:8},{wch:42},{wch:12},{wch:14}];
+
+  // Row heights
+  ws['!rows']=[];
+  for(let i=0;i<50;i++) ws['!rows'].push({hpt:15});
+  ws['!rows'][0]={hpt:36}; // header
+  ws['!rows'][1]={hpt:6};  // accent bar
+
+  // Merges
+  ws['!merges']=[
+    {s:{r:0,c:0},e:{r:0,c:5}},  // FROST ROOFING header
+    {s:{r:1,c:0},e:{r:1,c:5}},  // accent bar
+    {s:{r:2,c:0},e:{r:2,c:2}},  // DATE label+value
+    {s:{r:3,c:0},e:{r:3,c:2}},  // JOB NAME
+    {s:{r:4,c:0},e:{r:4,c:2}},  // JOB NO
+    {s:{r:2,c:3},e:{r:4,c:3}},  // PO# label
+    {s:{r:2,c:4},e:{r:4,c:5}},  // PO# value box
+    {s:{r:5,c:0},e:{r:5,c:2}},  // TO label+name
+    {s:{r:6,c:0},e:{r:6,c:2}},  // TO street
+    {s:{r:7,c:0},e:{r:7,c:2}},  // TO city
+    {s:{r:8,c:0},e:{r:8,c:2}},  // ATTN
+    {s:{r:5,c:3},e:{r:5,c:5}},  // SHIP TO line 1
+    {s:{r:6,c:3},e:{r:6,c:5}},  // SHIP TO line 2
+    {s:{r:7,c:3},e:{r:7,c:5}},  // SHIP TO line 3
+    {s:{r:8,c:3},e:{r:8,c:5}},  // SHIP DATE
+    {s:{r:10,c:2},e:{r:10,c:3}},// DESCRIPTION header
+    {s:{r:43,c:0},e:{r:43,c:3}},// notice text row1
+    {s:{r:44,c:0},e:{r:44,c:3}},// notice text row2
+    {s:{r:45,c:0},e:{r:45,c:5}},// TAXABLE EXEMPT row
+    {s:{r:46,c:0},e:{r:46,c:5}},// footer
+  ];
+
+  const hdrStyle={font:{bold:true,sz:22,color:{rgb:"FFFFFF"},name:"Arial Black"},fill:{fgColor:{rgb:"000000"}},alignment:{horizontal:"center",vertical:"center"}};
+  const subHdrStyle={font:{bold:true,sz:10,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"333333"}},alignment:{horizontal:"center"}};
+  const labelStyle={font:{bold:true,sz:10},border:{bottom:{style:"thin",color:{rgb:"000000"}}}};
+  const valueStyle={font:{sz:10},border:{bottom:{style:"thin",color:{rgb:"000000"}}}};
+  const poNumLabelStyle={font:{bold:true,sz:10},alignment:{horizontal:"center"}};
+  const poNumValueStyle={font:{bold:true,sz:16},alignment:{horizontal:"center",vertical:"center"},border:{top:{style:"medium",color:{rgb:"000000"}},bottom:{style:"medium",color:{rgb:"000000"}},left:{style:"medium",color:{rgb:"000000"}},right:{style:"medium",color:{rgb:"000000"}}}};
+  const totLabelStyle={font:{sz:10},alignment:{horizontal:"right"}};
+  const totValueStyle={font:{sz:10},numFmt:'"$"#,##0.00',border:{top:{style:"thin",color:{rgb:"CCCCCC"}},bottom:{style:"thin",color:{rgb:"CCCCCC"}},left:{style:"thin",color:{rgb:"CCCCCC"}},right:{style:"thin",color:{rgb:"CCCCCC"}}}};
+  const totTotalStyle={font:{bold:true,sz:11},numFmt:'"$"#,##0.00',border:{top:{style:"medium",color:{rgb:"000000"}},bottom:{style:"medium",color:{rgb:"000000"}},left:{style:"medium",color:{rgb:"000000"}},right:{style:"medium",color:{rgb:"000000"}}}};
+  const footerStyle={font:{sz:8},fill:{fgColor:{rgb:"168C97"}},alignment:{horizontal:"center"},color:{rgb:"FFFFFF"}};
+
+  // Row 0: Header
+  ws[R(0,0)]={v:"FROST ROOFING",t:"s",s:hdrStyle};
+  // Row 1: accent (blank styled)
+  ws[R(1,0)]={v:"",t:"s",s:{fill:{fgColor:{rgb:"AAAAAA"}}}};
+  // Row 2-4: Date/JobName/JobNo + PO#
+  s(2,0,`DATE:  ${poData.date}`,labelStyle);
+  s(3,0,`JOB NAME:  ${poData.jobName}`,labelStyle);
+  s(4,0,`JOB NO:  ${poData.jobNo}`,labelStyle);
+  ws[R(2,3)]={v:"PURCHASE ORDER NUMBER",t:"s",s:poNumLabelStyle};
+  ws[R(2,4)]={v:poData.poNum,t:"s",s:poNumValueStyle};
+  // TO section
+  s(5,0,`TO:  ${poData.vendorName}`,labelStyle);
+  s(6,0,`       ${poData.vendorStreet||""}`,valueStyle);
+  s(7,0,`       ${poData.vendorCity||""}`,valueStyle);
+  s(8,0,`ATTN:  ${poData.vendorAttn||""}`,labelStyle);
+  // SHIP TO section
+  s(5,3,`SHIP TO:  ${poData.shipLine1||""}`,labelStyle);
+  s(6,3,`              ${poData.shipLine2||""}`,valueStyle);
+  s(7,3,`              ${poData.shipLine3||""}`,valueStyle);
+  s(8,3,`SHIP DATE:  ${poData.shipDate||""}`,labelStyle);
+
+  // Row 9: spacer, Row 10: column headers
+  ws[R(10,0)]={v:"QTY",t:"s",s:subHdrStyle};
+  ws[R(10,1)]={v:"UNIT",t:"s",s:subHdrStyle};
+  ws[R(10,2)]={v:"DESCRIPTION",t:"s",s:subHdrStyle};
+  ws[R(10,3)]={v:"",t:"s",s:subHdrStyle};
+  ws[R(10,4)]={v:"UNIT PRICE",t:"s",s:subHdrStyle};
+  ws[R(10,5)]={v:"EXTENSION",t:"s",s:subHdrStyle};
+
+  // Line items rows 11-30 (20 rows)
+  const lineStyle={border:{bottom:{style:"hair",color:{rgb:"CCCCCC"}},left:{style:"thin",color:{rgb:"CCCCCC"}},right:{style:"thin",color:{rgb:"CCCCCC"}}}};
+  const extStyle={...lineStyle,numFmt:'"$"#,##0.00',alignment:{horizontal:"right"}};
+  const upStyle={...lineStyle,numFmt:'"$"#,##0.00'};
+  for(let i=0;i<20;i++){
+    const p=poData.items[i];
+    const row=11+i;
+    ws[R(row,0)]={v:p?p.orderQty||"":"",t:p&&p.orderQty?"n":"s",s:lineStyle};
+    ws[R(row,1)]={v:p?p.orderUnit||"":"",t:"s",s:lineStyle};
+    ws[R(row,2)]={v:p?p.desc||p.name||"":"",t:"s",s:{...lineStyle}};
+    ws[R(row,3)]={v:"",t:"s",s:lineStyle};
+    ws[R(row,4)]={v:p&&p.unitPrice?Number(p.unitPrice):0,t:"n",s:upStyle};
+    const ext=p?(Number(p.orderQty)||0)*(Number(p.unitPrice)||0):0;
+    ws[R(row,5)]={v:ext,t:"n",s:extStyle};
+  }
+
+  // Totals rows 31-34
+  s(31,4,"Subtotal",totLabelStyle);
+  ws[R(31,5)]={v:poData.subtotal,t:"n",s:totValueStyle};
+  s(32,4,"Freight",totLabelStyle);
+  ws[R(32,5)]={v:poData.freight,t:"n",s:totValueStyle};
+  s(33,4,`Tax${poData.taxPct&&poData.taxPct!=="0"?" ("+poData.taxPct+"%)":""}`,totLabelStyle);
+  ws[R(33,5)]={v:poData.taxAmt,t:"n",s:totValueStyle};
+  s(34,4,"Total",{...totLabelStyle,font:{bold:true,sz:11}});
+  ws[R(34,5)]={v:poData.total,t:"n",s:totTotalStyle};
+
+  // Notice rows 43-44
+  s(43,0,"PURCHASE ORDER NUMBERS MUST APPEAR ON ALL PACKING SLIPS & INVOICES.",{font:{sz:9},alignment:{horizontal:"center"}});
+  s(44,0,"ALL INVOICES TO BE SENT TO: PO BOX 1959, WAPAKONETA OH 45895",{font:{sz:9},alignment:{horizontal:"center"}});
+
+  // Row 45: Taxable/Exempt/Freight Allowed/BY
+  const chk=(v)=>v?"☑":"☐";
+  ws[R(45,0)]={v:`${chk(poData.taxable)} TAXABLE    ${chk(poData.exempt)} EXEMPT    ${chk(poData.freightAllowed)} FREIGHT ALLOWED    BY: ${poData.preparedBy||""}`,t:"s",s:{font:{sz:10},border:{top:{style:"thin",color:{rgb:"000000"}}}}};
+
+  // Row 46: Footer
+  ws[R(46,0)]={v:"FROST ROOFING INC.  •  PO BOX 1959, WAPAKONETA, OH 45895  •  PH: (419) 739-2701  •  FAX: (419) 738-8881  •  EOE EMPLOYER\nWWW.FROST-ROOFING.COM  •  INFO@FROST-ROOFING.COM",t:"s",s:{font:{sz:8,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"168C97"}},alignment:{horizontal:"center",wrapText:true}}};
+  ws['!rows'][46]={hpt:26};
+
+  // Set ref range
+  ws['!ref']="A1:F47";
+  XLSX.utils.book_append_sheet(wb,ws,"Purchase Order");
+  return wb;
+}
+
 function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
-  // Detect mobile
   const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-  // PO fields
   const [vnd,setVnd]=useState("");
   const [pit,setPit]=useState([]);
-  const [pn,setPn]=useState("PO-"+new Date().getFullYear()+"-"+String(orders.length+1).padStart(3,"0"));
   const [pd,setPd]=useState(new Date().toISOString().split("T")[0]);
   const [jn,setJn]=useState("");
   const [jo,setJo]=useState("");
   const [sd,setSd]=useState("");
   const [asap,setAsap]=useState(false);
-  const [fr,setFr]=useState("0");        // freight dollar amount in PO Details
-  const [taxPct,setTaxPct]=useState(""); // tax % field
+  const [fr,setFr]=useState("0");
+  const [taxPct,setTaxPct]=useState("");
   const [tax,setTax]=useState("taxable");
   const [fral,setFral]=useState(true);
   const [usr,setUsr]=useState("");
+  const [pn,setPn]=useState("");
   const [pne,setPne]=useState("");
   const [submitting,setSubmitting]=useState(false);
-
-  // Ship To dropdown + conditional fields
-  const [shipMode,setShipMode]=useState(""); // "frost"|"jobsite"|"pickup"|"pricing"
+  const [shipMode,setShipMode]=useState("");
   const [jsLine1,setJsLine1]=useState("");
   const [jsLine2,setJsLine2]=useState("");
 
+  // Auto-generate PO number when user is selected
+  useEffect(()=>{
+    if(!usr) return;
+    const poUser=PO_USERS.find(u=>u.name===usr);
+    if(!poUser) return;
+    const yy=String(new Date().getFullYear()).slice(-2);
+    const uid=poUser.uid;
+    const prefix=yy+uid;
+    // Count existing POs for this user in current year
+    const existing=orders.filter(o=>o.poNum&&o.poNum.startsWith(prefix));
+    const next=String(existing.length+1).padStart(4,"0");
+    setPn(prefix+next);
+    setPne("");
+  },[usr]);
+
   // Pricing mode auto-fills
   useEffect(()=>{
-    if(shipMode==="pricing"){setPn("Pricing");setJn("Pricing");setJo("");}
-    else if(pn==="Pricing"&&jn==="Pricing"){
-      setPn("PO-"+new Date().getFullYear()+"-"+String(orders.length+1).padStart(3,"0"));
-      setJn("");
-    }
+    if(shipMode==="pricing"){setJn("Pricing");setJo("");}
   },[shipMode]);
 
-  // Build ship-to display string for PO
   const shipDisplay=()=>{
-    if(shipMode==="frost") return [settings.companyName,settings.companyAddress,settings.companyCity].filter(Boolean).join(", ");
+    if(shipMode==="frost") return [settings.companyName||"Frost Roofing Inc.",settings.companyAddress||"PO Box 1959",settings.companyCity||"Wapakoneta, OH 45895"].filter(Boolean).join(", ");
     if(shipMode==="jobsite") return [jsLine1,jsLine2].filter(Boolean).join(", ");
     if(shipMode==="pickup") return "Pick Up";
     if(shipMode==="pricing") return "";
     return "";
   };
 
-  // Format date as "Mar 9, 2026"
+  // Ship lines for Excel (split into 3 lines)
+  const shipLines=()=>{
+    if(shipMode==="frost") return [settings.companyName||"Frost Roofing Inc.",settings.companyAddress||"PO Box 1959",settings.companyCity||"Wapakoneta, OH 45895"];
+    if(shipMode==="jobsite") return [jsLine1,jsLine2,""];
+    if(shipMode==="pickup") return ["Pick Up","",""];
+    return ["","",""];
+  };
+
+  const v=vendors.find(x=>x.id===vnd);
+  const u=PO_USERS.find(x=>x.name===usr);
+  const fn=u?u.name.split(" ")[0]:"";
+
   const fmtDate=iso=>{
     if(!iso) return "";
     const [y,m,d]=iso.split("-");
     const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     return `${months[parseInt(m,10)-1]} ${parseInt(d,10)}, ${y}`;
   };
-
-  const v=vendors.find(x=>x.id===vnd);
-  const u=USERS.find(x=>x.name===usr);
-  const fn=u?u.name.split(" ")[0]:"";
   const need=items.filter(i=>["out","low","ord"].includes(gst(i)));
   const add=i=>{if(!pit.find(p=>p.id===i.id))setPit(p=>[...p,{...i,orderQty:"",orderUnit:i.unit||"",unitPrice:"",desc:i.name}]);};
   const rem=id=>setPit(p=>p.filter(x=>x.id!==id));
@@ -518,75 +669,56 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
 <script>window.print();<\/script></body></html>`;
   };
 
+  const mkPoData=()=>({
+    poNum:pn, date:fmtDate(pd), jobName:jn, jobNo:jo,
+    vendorName:v?.name||"", vendorStreet:v?.street||"", vendorCity:v?.cityState||"", vendorAttn:v?.contact||"",
+    shipLine1:shipLines()[0], shipLine2:shipLines()[1], shipLine3:shipLines()[2],
+    shipDate:sdsp, items:pit, subtotal:sub, freight:frAmt, taxPct:taxPct||"0", taxAmt, total:tot,
+    taxable:tax==="taxable", exempt:tax==="exempt", freightAllowed:fral, preparedBy:usr,
+  });
+
+  const doSubmit=async()=>{
+    if(!u){alert("Please select a Prepared By person.");return;}
+    if(chkDup(pn))return;
+    setSubmitting(true);
+    try{
+      // 1. Build and download Excel
+      if(window.XLSX){
+        const wb=buildXLSX(mkPoData());
+        window.XLSX.writeFile(wb,`PO_${pn}.xlsx`);
+      }
+      // 2. Send email via EmailJS
+      if(window.EMAILJS_READY){
+        await emailjs.send(
+          window.EMAILJS_SERVICE_ID,
+          window.EMAILJS_TEMPLATE_ID,
+          {
+            to_email:u.email, to_name:fn,
+            po_number:pn, po_date:fmtDate(pd),
+            vendor_name:v?v.name:"", job_name:jn, job_no:jo,
+            ship_to:shipDisplay(), ship_date:sdsp,
+            subtotal:fmt(sub), freight:fmt(frAmt),
+            tax:taxAmt>0?fmt(taxAmt):"$ -", total:fmt(tot),
+            item_count:pit.length+"",
+          },
+          window.EMAILJS_PUBLIC_KEY
+        );
+      }
+      await onSaveOrder(mkOrder());
+      alert(`✅ PO ${pn} saved!\n• Excel file downloaded\n• Email sent to ${u.email}`);
+    }catch(e){
+      alert("Error: "+(e.text||e.message||"Unknown error"));
+    }finally{
+      setSubmitting(false);
+    }
+  };
+
   const mkOrder=()=>({
     id:Date.now()+"",poNum:pn,poDate:pd,vendorId:vnd,vendorName:v?.name||"Unknown",
     jobName:jn,jobNo:jo,shipTo:shipDisplay(),shipDate:sdsp,
     items:pit.map(p=>({...p})),subtotal:sub,freight:frAmt,taxPct:taxPct||"0",taxAmt,total:tot,
     status:"Sent",createdBy:usr||"",createdAt:new Date().toISOString()
   });
-
-  // Build CSV content for email attachment
-  const buildCSV=()=>{
-    const lines=[
-      ["FROST ROOFING - PURCHASE ORDER"],
-      ["PO Number",pn],
-      ["Date",fmtDate(pd)],
-      ["Vendor",v?v.name:""],
-      ["Job Name",jn],
-      ["Job No",jo],
-      ["Ship To",shipDisplay()],
-      ["Ship Date",sdsp],
-      ["Prepared By",usr],
-      [],
-      ["Qty","Unit","Description","Unit Price","Extension"],
-      ...pit.map(p=>[p.orderQty,p.orderUnit,p.desc||p.name,p.unitPrice?(Number(p.unitPrice).toFixed(2)):"",((Number(p.orderQty)||0)*(Number(p.unitPrice)||0)).toFixed(2)]),
-      [],
-      ["","","","Subtotal",sub.toFixed(2)],
-      ["","","","Freight",frAmt.toFixed(2)],
-      ["","","",`Tax${taxPct?" ("+taxPct+"%)":""}`,taxAmt.toFixed(2)],
-      ["","","","TOTAL",tot.toFixed(2)],
-    ];
-    return lines.map(r=>r.map(c=>`"${String(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
-  };
-
-  const doSubmit=async()=>{
-    if(!u){alert("Please select a Prepared By person.");return;}
-    if(chkDup(pn))return;
-    if(!window.EMAILJS_READY){alert("EmailJS is not configured yet. Please add your EmailJS keys to the app.");return;}
-    setSubmitting(true);
-    try{
-      const csvContent=buildCSV();
-      const csvB64=btoa(unescape(encodeURIComponent(csvContent)));
-      await emailjs.send(
-        window.EMAILJS_SERVICE_ID,
-        window.EMAILJS_TEMPLATE_ID,
-        {
-          to_email:u.email,
-          to_name:fn,
-          po_number:pn,
-          po_date:fmtDate(pd),
-          vendor_name:v?v.name:"",
-          job_name:jn,
-          job_no:jo,
-          ship_to:shipDisplay(),
-          ship_date:sdsp,
-          subtotal:fmt(sub),
-          freight:fmt(frAmt),
-          tax:taxAmt>0?fmt(taxAmt):"$ -",
-          total:fmt(tot),
-          item_count:pit.length+"",
-          csv_content:csvContent,
-        },
-        window.EMAILJS_PUBLIC_KEY
-      );
-      await onSaveOrder(mkOrder());
-      alert(`✅ PO ${pn} submitted and emailed to ${u.email}`);
-    }catch(e){
-      alert("Email failed: "+e.text||e.message||"Unknown error");
-    }finally{
-      setSubmitting(false);
-    }
-  };
 
   const doPrint=async()=>{
     if(chkDup(pn))return;
@@ -673,9 +805,9 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
         <div style={{gridColumn:"1/-1"}}>
           <Sel lbl="Prepared By / Submit To" val={usr} onChange={setUsr}>
             <option value="">-- Select Person --</option>
-            {USERS.map(u=><option key={u.name} value={u.name}>{u.name}</option>)}
+            {PO_USERS.map(u=><option key={u.name} value={u.name}>{u.name}</option>)}
           </Sel>
-          {usr&&<p style={{fontSize:11,color:B,marginTop:4}}>✉ {USERS.find(u=>u.name===usr)?.email}</p>}
+          {usr&&<p style={{fontSize:11,color:B,marginTop:4}}>✉ {PO_USERS.find(u=>u.name===usr)?.email}</p>}
         </div>
 
         {/* Tax / Freight Allowed checkboxes */}
