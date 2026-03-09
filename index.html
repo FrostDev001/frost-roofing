@@ -66,61 +66,73 @@ function loadScript(src,cb){
   var s=document.createElement('script');
   s.src=src;
   s.onload=cb;
-  s.onerror=function(){showErr('Failed to load: '+src);};
+  s.onerror=function(){
+    // Don't block the chain if a non-critical script fails
+    console.warn('Failed to load: '+src+' — continuing anyway');
+    if(cb) cb();
+  };
   document.head.appendChild(s);
 }
 
-// ── EmailJS config — fill in after EmailJS setup ──────────────────────────
+// ── EmailJS config ────────────────────────────────────────────────────────
 window.EMAILJS_PUBLIC_KEY  = "fM-RjmSxDv-97pkA5";
 window.EMAILJS_SERVICE_ID  = "service_6hl5hk8";
 window.EMAILJS_TEMPLATE_ID = "template_qo0ramu";
-window.EMAILJS_READY = true;
+window.EMAILJS_READY = false; // Set to true only after successful init
 // ─────────────────────────────────────────────────────────────────────────
 
-loadScript('https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js',function(){
-  if(window.EMAILJS_PUBLIC_KEY!=="YOUR_EMAILJS_PUBLIC_KEY"){
-    emailjs.init(window.EMAILJS_PUBLIC_KEY);
-    window.EMAILJS_READY=true;
-  }
-loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',function(){
-  window.XLSX=XLSX;
-  loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',function(){
-loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js',function(){
-loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js',function(){
-  try{
-    var cfg={
-      apiKey:"AIzaSyAJhTeHEpo-SXUwCVsRyO_dd7WdWFJ13UQ",
-      authDomain:"inventory-tracker-8f080.firebaseapp.com",
-      projectId:"inventory-tracker-8f080",
-      storageBucket:"inventory-tracker-8f080.firebasestorage.app",
-      messagingSenderId:"237298409883",
-      appId:"1:237298409883:web:609f387ebb65fe425fc13e"
-    };
-    if(!firebase.apps.length) firebase.initializeApp(cfg);
-    window.db=firebase.firestore();
-    window.auth=firebase.auth();
-    window.FS={
-      save:function(col,id,data){return window.db.collection(col).doc(id).set(data);},
-      del:function(col,id){return window.db.collection(col).doc(id).delete();},
-      watchCol:function(col,cb){return window.db.collection(col).onSnapshot(function(s){cb(s.docs.map(function(d){return Object.assign({id:d.id},d.data());}));});},
-      watchDoc:function(col,id,cb){return window.db.collection(col).doc(id).onSnapshot(function(s){cb(s.exists?s.data():null);});}
-    };
-  }catch(e){showErr('Firebase error: '+e.message);return;}
-  loadScript('https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',function(){
-  loadScript('https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',function(){
-  loadScript('https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js',function(){
-    var appScript=document.getElementById('app-source');
-    var s=document.createElement('script');
-    s.type='text/babel';
-    s.setAttribute('data-presets','react');
-    s.textContent=appScript.textContent;
-    document.body.appendChild(s);
-    Babel.transformScriptTags();
-  });});});
-});});});
-}); // end Firebase chain
-}); // end SheetJS loadScript
-}); // end EmailJS loadScript
+// EmailJS loads in PARALLEL — does NOT block the main app chain
+loadScript('https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js', function(){
+  try {
+    if(window.emailjs){
+      emailjs.init(window.EMAILJS_PUBLIC_KEY);
+      window.EMAILJS_READY = true;
+    }
+  } catch(e){ console.warn('EmailJS init failed:', e); }
+});
+
+// Main app chain — starts immediately, independent of EmailJS
+loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', function(){
+  window.XLSX = XLSX;
+  loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js', function(){
+    loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js', function(){
+      loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js', function(){
+        try{
+          var cfg={
+            apiKey:"AIzaSyAJhTeHEpo-SXUwCVsRyO_dd7WdWFJ13UQ",
+            authDomain:"inventory-tracker-8f080.firebaseapp.com",
+            projectId:"inventory-tracker-8f080",
+            storageBucket:"inventory-tracker-8f080.firebasestorage.app",
+            messagingSenderId:"237298409883",
+            appId:"1:237298409883:web:609f387ebb65fe425fc13e"
+          };
+          if(!firebase.apps.length) firebase.initializeApp(cfg);
+          window.db=firebase.firestore();
+          window.auth=firebase.auth();
+          window.FS={
+            save:function(col,id,data){return window.db.collection(col).doc(id).set(data);},
+            del:function(col,id){return window.db.collection(col).doc(id).delete();},
+            watchCol:function(col,cb){return window.db.collection(col).onSnapshot(function(s){cb(s.docs.map(function(d){return Object.assign({id:d.id},d.data());}));});},
+            watchDoc:function(col,id,cb){return window.db.collection(col).doc(id).onSnapshot(function(s){cb(s.exists?s.data():null);});}
+          };
+        }catch(e){showErr('Firebase error: '+e.message);return;}
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js', function(){
+          loadScript('https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js', function(){
+            loadScript('https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js', function(){
+              var appScript=document.getElementById('app-source');
+              var s=document.createElement('script');
+              s.type='text/babel';
+              s.setAttribute('data-presets','react');
+              s.textContent=appScript.textContent;
+              document.body.appendChild(s);
+              Babel.transformScriptTags();
+            });
+          });
+        });
+      });
+    });
+  });
+});
 </script>
 
 <script type="text/plain" id="app-source">
@@ -155,7 +167,6 @@ const NAV=[{id:"home",ic:"🏠",lb:"Home"},{id:"roofing",ic:"📦",lb:"Roofing"}
 const ALLNAV=[{id:"home",ic:"🏠",lb:"Home"},{id:"roofing",ic:"📦",lb:"Roofing Materials"},{id:"bigrock",ic:"🏗",lb:"Big Rock Supply"},{id:"misc",ic:"📋",lb:"Misc"},{id:"vendors",ic:"🏢",lb:"Vendors"},{id:"po",ic:"📄",lb:"Create PO"},{id:"history",ic:"🕐",lb:"Order History"},{id:"settings",ic:"⚙",lb:"Settings"}];
 
 // ── ALLOWED GOOGLE ACCOUNTS ──────────────────────────────────────────────────
-// Add your Gmail address here. To add more users later, add their Gmail to this list.
 const ALLOWED_EMAILS=[
   "pboedicker@gmail.com",
   "FrostInvMgr@gmail.com",
@@ -446,46 +457,26 @@ function Vendors({vendors,onSave,onDel}){
   </div>;
 }
 function buildXLSX(poData){
-  // Build Excel file matching Frost Roofing PO form using SheetJS
   const {XLSX}=window;
   const wb=XLSX.utils.book_new();
   const ws={};
   const R=(r,c)=>XLSX.utils.encode_cell({r,c});
   const s=(r,c,v,style)=>{ws[R(r,c)]={v,t:typeof v==="number"?"n":"s",...(style?{s:style}:{})};};
-
-  // Column widths (A=5,B=8,C=8,D=40,E=12,F=14)
   ws['!cols']=[{wch:5},{wch:8},{wch:8},{wch:42},{wch:12},{wch:14}];
-
-  // Row heights
   ws['!rows']=[];
   for(let i=0;i<50;i++) ws['!rows'].push({hpt:15});
-  ws['!rows'][0]={hpt:36}; // header
-  ws['!rows'][1]={hpt:6};  // accent bar
-
-  // Merges
+  ws['!rows'][0]={hpt:36};
+  ws['!rows'][1]={hpt:6};
   ws['!merges']=[
-    {s:{r:0,c:0},e:{r:0,c:5}},  // FROST ROOFING header
-    {s:{r:1,c:0},e:{r:1,c:5}},  // accent bar
-    {s:{r:2,c:0},e:{r:2,c:2}},  // DATE label+value
-    {s:{r:3,c:0},e:{r:3,c:2}},  // JOB NAME
-    {s:{r:4,c:0},e:{r:4,c:2}},  // JOB NO
-    {s:{r:2,c:3},e:{r:4,c:3}},  // PO# label
-    {s:{r:2,c:4},e:{r:4,c:5}},  // PO# value box
-    {s:{r:5,c:0},e:{r:5,c:2}},  // TO label+name
-    {s:{r:6,c:0},e:{r:6,c:2}},  // TO street
-    {s:{r:7,c:0},e:{r:7,c:2}},  // TO city
-    {s:{r:8,c:0},e:{r:8,c:2}},  // ATTN
-    {s:{r:5,c:3},e:{r:5,c:5}},  // SHIP TO line 1
-    {s:{r:6,c:3},e:{r:6,c:5}},  // SHIP TO line 2
-    {s:{r:7,c:3},e:{r:7,c:5}},  // SHIP TO line 3
-    {s:{r:8,c:3},e:{r:8,c:5}},  // SHIP DATE
-    {s:{r:10,c:2},e:{r:10,c:3}},// DESCRIPTION header
-    {s:{r:43,c:0},e:{r:43,c:3}},// notice text row1
-    {s:{r:44,c:0},e:{r:44,c:3}},// notice text row2
-    {s:{r:45,c:0},e:{r:45,c:5}},// TAXABLE EXEMPT row
-    {s:{r:46,c:0},e:{r:46,c:5}},// footer
+    {s:{r:0,c:0},e:{r:0,c:5}},{s:{r:1,c:0},e:{r:1,c:5}},
+    {s:{r:2,c:0},e:{r:2,c:2}},{s:{r:3,c:0},e:{r:3,c:2}},{s:{r:4,c:0},e:{r:4,c:2}},
+    {s:{r:2,c:3},e:{r:4,c:3}},{s:{r:2,c:4},e:{r:4,c:5}},
+    {s:{r:5,c:0},e:{r:5,c:2}},{s:{r:6,c:0},e:{r:6,c:2}},{s:{r:7,c:0},e:{r:7,c:2}},{s:{r:8,c:0},e:{r:8,c:2}},
+    {s:{r:5,c:3},e:{r:5,c:5}},{s:{r:6,c:3},e:{r:6,c:5}},{s:{r:7,c:3},e:{r:7,c:5}},{s:{r:8,c:3},e:{r:8,c:5}},
+    {s:{r:10,c:2},e:{r:10,c:3}},
+    {s:{r:43,c:0},e:{r:43,c:3}},{s:{r:44,c:0},e:{r:44,c:3}},
+    {s:{r:45,c:0},e:{r:45,c:5}},{s:{r:46,c:0},e:{r:46,c:5}},
   ];
-
   const hdrStyle={font:{bold:true,sz:22,color:{rgb:"FFFFFF"},name:"Arial Black"},fill:{fgColor:{rgb:"000000"}},alignment:{horizontal:"center",vertical:"center"}};
   const subHdrStyle={font:{bold:true,sz:10,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"333333"}},alignment:{horizontal:"center"}};
   const labelStyle={font:{bold:true,sz:10},border:{bottom:{style:"thin",color:{rgb:"000000"}}}};
@@ -495,38 +486,27 @@ function buildXLSX(poData){
   const totLabelStyle={font:{sz:10},alignment:{horizontal:"right"}};
   const totValueStyle={font:{sz:10},numFmt:'"$"#,##0.00',border:{top:{style:"thin",color:{rgb:"CCCCCC"}},bottom:{style:"thin",color:{rgb:"CCCCCC"}},left:{style:"thin",color:{rgb:"CCCCCC"}},right:{style:"thin",color:{rgb:"CCCCCC"}}}};
   const totTotalStyle={font:{bold:true,sz:11},numFmt:'"$"#,##0.00',border:{top:{style:"medium",color:{rgb:"000000"}},bottom:{style:"medium",color:{rgb:"000000"}},left:{style:"medium",color:{rgb:"000000"}},right:{style:"medium",color:{rgb:"000000"}}}};
-  const footerStyle={font:{sz:8},fill:{fgColor:{rgb:"168C97"}},alignment:{horizontal:"center"},color:{rgb:"FFFFFF"}};
-
-  // Row 0: Header
   ws[R(0,0)]={v:"FROST ROOFING",t:"s",s:hdrStyle};
-  // Row 1: accent (blank styled)
   ws[R(1,0)]={v:"",t:"s",s:{fill:{fgColor:{rgb:"AAAAAA"}}}};
-  // Row 2-4: Date/JobName/JobNo + PO#
   s(2,0,`DATE:  ${poData.date}`,labelStyle);
   s(3,0,`JOB NAME:  ${poData.jobName}`,labelStyle);
   s(4,0,`JOB NO:  ${poData.jobNo}`,labelStyle);
   ws[R(2,3)]={v:"PURCHASE ORDER NUMBER",t:"s",s:poNumLabelStyle};
   ws[R(2,4)]={v:poData.poNum,t:"s",s:poNumValueStyle};
-  // TO section
   s(5,0,`TO:  ${poData.vendorName}`,labelStyle);
   s(6,0,`       ${poData.vendorStreet||""}`,valueStyle);
   s(7,0,`       ${poData.vendorCity||""}`,valueStyle);
   s(8,0,`ATTN:  ${poData.vendorAttn||""}`,labelStyle);
-  // SHIP TO section
   s(5,3,`SHIP TO:  ${poData.shipLine1||""}`,labelStyle);
   s(6,3,`              ${poData.shipLine2||""}`,valueStyle);
   s(7,3,`              ${poData.shipLine3||""}`,valueStyle);
   s(8,3,`SHIP DATE:  ${poData.shipDate||""}`,labelStyle);
-
-  // Row 9: spacer, Row 10: column headers
   ws[R(10,0)]={v:"QTY",t:"s",s:subHdrStyle};
   ws[R(10,1)]={v:"UNIT",t:"s",s:subHdrStyle};
   ws[R(10,2)]={v:"DESCRIPTION",t:"s",s:subHdrStyle};
   ws[R(10,3)]={v:"",t:"s",s:subHdrStyle};
   ws[R(10,4)]={v:"UNIT PRICE",t:"s",s:subHdrStyle};
   ws[R(10,5)]={v:"EXTENSION",t:"s",s:subHdrStyle};
-
-  // Line items rows 11-30 (20 rows)
   const lineStyle={border:{bottom:{style:"hair",color:{rgb:"CCCCCC"}},left:{style:"thin",color:{rgb:"CCCCCC"}},right:{style:"thin",color:{rgb:"CCCCCC"}}}};
   const extStyle={...lineStyle,numFmt:'"$"#,##0.00',alignment:{horizontal:"right"}};
   const upStyle={...lineStyle,numFmt:'"$"#,##0.00'};
@@ -541,8 +521,6 @@ function buildXLSX(poData){
     const ext=p?(Number(p.orderQty)||0)*(Number(p.unitPrice)||0):0;
     ws[R(row,5)]={v:ext,t:"n",s:extStyle};
   }
-
-  // Totals rows 31-34
   s(31,4,"Subtotal",totLabelStyle);
   ws[R(31,5)]={v:poData.subtotal,t:"n",s:totValueStyle};
   s(32,4,"Freight",totLabelStyle);
@@ -551,28 +529,18 @@ function buildXLSX(poData){
   ws[R(33,5)]={v:poData.taxAmt,t:"n",s:totValueStyle};
   s(34,4,"Total",{...totLabelStyle,font:{bold:true,sz:11}});
   ws[R(34,5)]={v:poData.total,t:"n",s:totTotalStyle};
-
-  // Notice rows 43-44
   s(43,0,"PURCHASE ORDER NUMBERS MUST APPEAR ON ALL PACKING SLIPS & INVOICES.",{font:{sz:9},alignment:{horizontal:"center"}});
   s(44,0,"ALL INVOICES TO BE SENT TO: PO BOX 1959, WAPAKONETA OH 45895",{font:{sz:9},alignment:{horizontal:"center"}});
-
-  // Row 45: Taxable/Exempt/Freight Allowed/BY
   const chk=(v)=>v?"☑":"☐";
   ws[R(45,0)]={v:`${chk(poData.taxable)} TAXABLE    ${chk(poData.exempt)} EXEMPT    ${chk(poData.freightAllowed)} FREIGHT ALLOWED    BY: ${poData.preparedBy||""}`,t:"s",s:{font:{sz:10},border:{top:{style:"thin",color:{rgb:"000000"}}}}};
-
-  // Row 46: Footer
   ws[R(46,0)]={v:"FROST ROOFING INC.  •  PO BOX 1959, WAPAKONETA, OH 45895  •  PH: (419) 739-2701  •  FAX: (419) 738-8881  •  EOE EMPLOYER\nWWW.FROST-ROOFING.COM  •  INFO@FROST-ROOFING.COM",t:"s",s:{font:{sz:8,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"168C97"}},alignment:{horizontal:"center",wrapText:true}}};
   ws['!rows'][46]={hpt:26};
-
-  // Set ref range
   ws['!ref']="A1:F47";
   XLSX.utils.book_append_sheet(wb,ws,"Purchase Order");
   return wb;
 }
-
 function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
   const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
   const [vnd,setVnd]=useState("");
   const [pit,setPit]=useState([]);
   const [pd,setPd]=useState(new Date().toISOString().split("T")[0]);
@@ -591,8 +559,6 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
   const [shipMode,setShipMode]=useState("");
   const [jsLine1,setJsLine1]=useState("");
   const [jsLine2,setJsLine2]=useState("");
-
-  // Auto-generate PO number when user is selected
   useEffect(()=>{
     if(!usr) return;
     const poUser=PO_USERS.find(u=>u.name===usr);
@@ -600,18 +566,14 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
     const yy=String(new Date().getFullYear()).slice(-2);
     const uid=poUser.uid;
     const prefix=yy+uid;
-    // Count existing POs for this user in current year
     const existing=orders.filter(o=>o.poNum&&o.poNum.startsWith(prefix));
     const next=String(existing.length+1).padStart(4,"0");
     setPn(prefix+next);
     setPne("");
   },[usr]);
-
-  // Pricing mode auto-fills
   useEffect(()=>{
     if(shipMode==="pricing"){setJn("Pricing");setJo("");}
   },[shipMode]);
-
   const shipDisplay=()=>{
     if(shipMode==="frost") return [settings.companyName||"Frost Roofing Inc.",settings.companyAddress||"PO Box 1959",settings.companyCity||"Wapakoneta, OH 45895"].filter(Boolean).join(", ");
     if(shipMode==="jobsite") return [jsLine1,jsLine2].filter(Boolean).join(", ");
@@ -619,19 +581,15 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
     if(shipMode==="pricing") return "";
     return "";
   };
-
-  // Ship lines for Excel (split into 3 lines)
   const shipLines=()=>{
     if(shipMode==="frost") return [settings.companyName||"Frost Roofing Inc.",settings.companyAddress||"PO Box 1959",settings.companyCity||"Wapakoneta, OH 45895"];
     if(shipMode==="jobsite") return [jsLine1,jsLine2,""];
     if(shipMode==="pickup") return ["Pick Up","",""];
     return ["","",""];
   };
-
   const v=vendors.find(x=>x.id===vnd);
   const u=PO_USERS.find(x=>x.name===usr);
   const fn=u?u.name.split(" ")[0]:"";
-
   const fmtDate=iso=>{
     if(!iso) return "";
     const [y,m,d]=iso.split("-");
@@ -649,7 +607,6 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
   const fmt=n=>n===0?"$ -":"$"+n.toFixed(2);
   const sdsp=asap?"ASAP":fmtDate(sd);
   const chkDup=num=>{const d=orders.some(o=>o.poNum===num);setPne(d?`PO # "${num}" already exists.`:"");return d;};
-
   const poHtml=()=>{
     const rows=Array.from({length:20}).map((_,i)=>{
       const p=pit[i];const e=p?(Number(p.orderQty)||0)*(Number(p.unitPrice)||0):0;
@@ -668,7 +625,6 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
 <div class="ft">FROST ROOFING INC. &bull; PO BOX 1959, WAPAKONETA, OH 45895 &bull; PH: (419) 739-2701 &bull; EOE EMPLOYER<br>WWW.FROST-ROOFING.COM &bull; INFO@FROST-ROOFING.COM</div>
 <script>window.print();<\/script></body></html>`;
   };
-
   const mkPoData=()=>({
     poNum:pn, date:fmtDate(pd), jobName:jn, jobNo:jo,
     vendorName:v?.name||"", vendorStreet:v?.street||"", vendorCity:v?.cityState||"", vendorAttn:v?.contact||"",
@@ -676,18 +632,15 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
     shipDate:sdsp, items:pit, subtotal:sub, freight:frAmt, taxPct:taxPct||"0", taxAmt, total:tot,
     taxable:tax==="taxable", exempt:tax==="exempt", freightAllowed:fral, preparedBy:usr,
   });
-
   const doSubmit=async()=>{
     if(!u){alert("Please select a Prepared By person.");return;}
     if(chkDup(pn))return;
     setSubmitting(true);
     try{
-      // 1. Build and download Excel
       if(window.XLSX){
         const wb=buildXLSX(mkPoData());
         window.XLSX.writeFile(wb,`PO_${pn}.xlsx`);
       }
-      // 2. Send email via EmailJS
       if(window.EMAILJS_READY){
         await emailjs.send(
           window.EMAILJS_SERVICE_ID,
@@ -703,73 +656,56 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
           },
           window.EMAILJS_PUBLIC_KEY
         );
+        await onSaveOrder(mkOrder());
+        alert(`✅ PO ${pn} saved!\n• Excel file downloaded\n• Email sent to ${u.email}`);
+      } else {
+        await onSaveOrder(mkOrder());
+        alert(`✅ PO ${pn} saved!\n• Excel file downloaded\n• (Email unavailable — check connection)`);
       }
-      await onSaveOrder(mkOrder());
-      alert(`✅ PO ${pn} saved!\n• Excel file downloaded\n• Email sent to ${u.email}`);
     }catch(e){
       alert("Error: "+(e.text||e.message||"Unknown error"));
     }finally{
       setSubmitting(false);
     }
   };
-
   const mkOrder=()=>({
     id:Date.now()+"",poNum:pn,poDate:pd,vendorId:vnd,vendorName:v?.name||"Unknown",
     jobName:jn,jobNo:jo,shipTo:shipDisplay(),shipDate:sdsp,
     items:pit.map(p=>({...p})),subtotal:sub,freight:frAmt,taxPct:taxPct||"0",taxAmt,total:tot,
     status:"Sent",createdBy:usr||"",createdAt:new Date().toISOString()
   });
-
   const doPrint=async()=>{
     if(chkDup(pn))return;
     const w=window.open("","_blank");
     if(w)w.document.write(poHtml());
     await onSaveOrder(mkOrder());
   };
-
   const dis=pit.length===0||!vnd||!!pne||!shipMode;
-
   return <div style={{display:"flex",flexDirection:"column",gap:12}}>
     <div className="card">
       <div className="sec-hdr">Purchase Order Details</div>
       <div style={{padding:14,display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-
-        {/* PO Number */}
         <div style={{gridColumn:"1/-1"}}>
           <F lbl="PO Number" val={pn} onChange={v=>{setPn(v);setPne("");}} disabled={shipMode==="pricing"}/>
           {pne&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{pne}</p>}
         </div>
-
-        {/* Date */}
         <F lbl="Date" val={pd} onChange={setPd} type="date"/>
-
-        {/* Freight $ */}
         <div className="fw">
           <label>Freight ($)</label>
           <input type="number" value={fr} onChange={e=>setFr(e.target.value)} placeholder="0.00" style={{border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",fontSize:16,width:"100%",outline:"none",background:"white"}}/>
         </div>
-
-        {/* Job Name */}
         <F lbl="Job Name" val={jn} onChange={setJn} disabled={shipMode==="pricing"}/>
-
-        {/* Job No — hidden in pricing mode */}
         {shipMode!=="pricing"&&<F lbl="Job No" val={jo} onChange={setJo}/>}
-
-        {/* Tax % */}
         <div className="fw" style={{gridColumn:"1/-1"}}>
           <label>Tax Rate (%)</label>
           <input type="number" value={taxPct} onChange={e=>setTaxPct(e.target.value)} placeholder="0  (leave blank if exempt)" style={{border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",fontSize:16,width:"100%",outline:"none",background:"white"}}/>
         </div>
-
-        {/* Vendor */}
         <div style={{gridColumn:"1/-1"}}>
           <Sel lbl="Vendor (TO)" val={vnd} onChange={setVnd}>
             <option value="">-- Select Vendor --</option>
             {vendors.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}
           </Sel>
         </div>
-
-        {/* Ship To dropdown */}
         <div style={{gridColumn:"1/-1"}}>
           <div className="fw">
             <label>Ship To</label>
@@ -791,8 +727,6 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
           {shipMode==="pickup"&&<div style={{marginTop:8,fontSize:12,color:"#6b7280",background:"#f9fafb",borderRadius:8,padding:"6px 10px"}}>No shipping address needed.</div>}
           {shipMode==="pricing"&&<div style={{marginTop:8,fontSize:12,color:"#92400e",background:"#fffbeb",borderRadius:8,padding:"6px 10px"}}>⚠ Pricing mode — PO#, Job Name locked to "Pricing". No address or Job No.</div>}
         </div>
-
-        {/* Ship Date — hidden in pricing mode */}
         {shipMode!=="pricing"&&<div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:6}}>
           <F lbl="Ship Date" val={asap?"":sd} onChange={setSd} type="date" disabled={asap}/>
           <label className="cr">
@@ -800,8 +734,6 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
             ASAP
           </label>
         </div>}
-
-        {/* Prepared By */}
         <div style={{gridColumn:"1/-1"}}>
           <Sel lbl="Prepared By / Submit To" val={usr} onChange={setUsr}>
             <option value="">-- Select Person --</option>
@@ -809,8 +741,6 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
           </Sel>
           {usr&&<p style={{fontSize:11,color:B,marginTop:4}}>✉ {PO_USERS.find(u=>u.name===usr)?.email}</p>}
         </div>
-
-        {/* Tax / Freight Allowed checkboxes */}
         <div style={{gridColumn:"1/-1",display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
           <span style={{fontSize:11,fontWeight:600,color:"#6b7280",textTransform:"uppercase"}}>Tax:</span>
           <label className="cr">
@@ -826,8 +756,6 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
             Freight Allowed
           </label>
         </div>
-
-        {/* Running totals preview */}
         <div style={{gridColumn:"1/-1",background:"#f0fafb",borderRadius:10,padding:"10px 14px",display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end",fontSize:13}}>
           <span style={{color:"#6b7280"}}>Subtotal: <b>{fmt(sub)}</b></span>
           <span style={{color:"#6b7280"}}>Freight: <b>{fmt(frAmt)}</b></span>
@@ -836,14 +764,12 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
         </div>
       </div>
     </div>
-
     {need.length>0&&<div className="card">
       <div style={{background:"#fef9c3",padding:"8px 14px",fontSize:13,fontWeight:600,color:"#92400e"}}>⚠ Low / Out / On Order — tap to add</div>
       <div style={{padding:"10px 14px",display:"flex",flexWrap:"wrap",gap:6}}>
         {need.map(i=><button key={i.id} onClick={()=>add(i)} disabled={!!pit.find(p=>p.id===i.id)} style={{fontSize:12,padding:"4px 10px",borderRadius:8,border:"1px solid",cursor:"pointer",borderColor:pit.find(p=>p.id===i.id)?"#e5e7eb":B,background:"white",color:pit.find(p=>p.id===i.id)?"#9ca3af":B}}>{i.name} ({Number(i.qty)||0} {i.unit})</button>)}
       </div>
     </div>}
-
     <div className="card">
       <div className="sec-hdr" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         Line Items
@@ -865,15 +791,12 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
         </div>)}
       </div>
     </div>
-
-    {/* Action buttons */}
     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
       {!isMobile&&<button className="btn-brand" style={{padding:14,borderRadius:14,fontSize:14}} disabled={dis} onClick={doPrint}>🖨 Print & Save</button>}
       <button className="btn-brand" style={{padding:14,borderRadius:14,fontSize:14,opacity:(dis||!usr||submitting)?0.4:1}} disabled={dis||!usr||submitting} onClick={doSubmit}>
         {submitting?"Sending…":"📤 Submit"}
       </button>
     </div>
-
     <div className="card">
       <div className="sec-hdr" style={{display:"flex",justifyContent:"space-between"}}>Recent Orders<span style={{fontSize:12,opacity:.8}}>{orders.length} total</span></div>
       <div style={{padding:12,display:"flex",flexDirection:"column",gap:8,maxHeight:280,overflowY:"auto"}}>
@@ -956,8 +879,6 @@ function Settings({settings,onSave,items,onSaveItem}){
     </div>
   </div>;
 }
-
-// ── LOGIN SCREEN ─────────────────────────────────────────────────────────────
 function LoginScreen({onLogin,error}){
   const [loading,setLoading]=useState(false);
   const doLogin=async()=>{
@@ -990,10 +911,8 @@ function LoginScreen({onLogin,error}){
     </div>
   </div>;
 }
-
-// ── MAIN APP ─────────────────────────────────────────────────────────────────
 function App(){
-  const [user,setUser]=useState(undefined); // undefined = checking, null = signed out
+  const [user,setUser]=useState(undefined);
   const [authErr,setAuthErr]=useState("");
   const [items,setItems]=useState([]);
   const [vendors,setVendors]=useState([]);
@@ -1003,8 +922,6 @@ function App(){
   const [page,setPage]=useState("home");
   const [menu,setMenu]=useState(false);
   const [saving,setSaving]=useState(false);
-
-  // Listen for auth state changes
   useEffect(()=>{
     const unsub=auth.onAuthStateChanged(u=>{
       if(!u){setUser(null);return;}
@@ -1021,8 +938,6 @@ function App(){
     });
     return()=>unsub();
   },[]);
-
-  // Only subscribe to Firestore when authenticated
   useEffect(()=>{
     if(!user) return;
     const uns=[];
@@ -1032,7 +947,6 @@ function App(){
     uns.push(FS.watchDoc("settings","main",d=>{if(d)setSettings(d);setLoading(false);}));
     return()=>uns.forEach(u=>u());
   },[user]);
-
   const w=async fn=>{setSaving(true);try{await fn();}finally{setSaving(false);}};
   const si=item=>w(()=>FS.save("items",item.id,item));
   const di=id=>w(()=>FS.del("items",id));
@@ -1042,21 +956,13 @@ function App(){
   const dord=id=>w(()=>FS.del("orders",id));
   const updOrds=async arr=>{await Promise.all([...arr.map(o=>FS.save("orders",o.id,o)),...orders.filter(o=>!arr.find(x=>x.id===o.id)).map(o=>FS.del("orders",o.id))]);};
   const ss=s=>w(()=>FS.save("settings","main",s));
-
   const sum=sec=>{const s=items.filter(i=>i.section===sec);return{total:s.length,out:s.filter(i=>gst(i)==="out").length,low:s.filter(i=>gst(i)==="low").length,ord:s.filter(i=>gst(i)==="ord").length};};
   const tOut=items.filter(i=>gst(i)==="out").length;
   const tLow=items.filter(i=>gst(i)==="low").length;
   const tOrd=items.filter(i=>gst(i)==="ord").length;
-
-  // Still checking auth state
   if(user===undefined) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",flexDirection:"column",gap:16,background:"#eef6f7"}}><div className="spin"/><p style={{color:B,fontWeight:600}}>Connecting to Frost Roofing…</p></div>;
-
-  // Not signed in
   if(!user) return <LoginScreen onLogin={()=>{}} error={authErr}/>;
-
-  // Signed in but data loading
   if(loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",flexDirection:"column",gap:16,background:"#eef6f7"}}><div className="spin"/><p style={{color:B,fontWeight:600}}>Loading inventory…</p></div>;
-
   const SC=({sec,lbl,ic,gr,click})=>{
     const s=sum(sec);
     return <button onClick={click} className="sc">
@@ -1072,7 +978,6 @@ function App(){
       </div>
     </button>;
   };
-
   return <div style={{minHeight:"100vh",background:"#eef6f7",maxWidth:640,margin:"0 auto"}}>
     <div className="hdr">
       <div style={{padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
