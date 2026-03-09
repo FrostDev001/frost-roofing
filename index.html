@@ -70,7 +70,19 @@ function loadScript(src,cb){
   document.head.appendChild(s);
 }
 
-loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',function(){
+// ── EmailJS config — fill in after EmailJS setup ──────────────────────────
+window.EMAILJS_PUBLIC_KEY  = "fM-RjmSxDv-97pkA5";
+window.EMAILJS_SERVICE_ID  = "service_6hl5hk8";
+window.EMAILJS_TEMPLATE_ID = "template_qo0ramu";
+window.EMAILJS_READY = true;
+// ─────────────────────────────────────────────────────────────────────────
+
+loadScript('https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js',function(){
+  if(window.EMAILJS_PUBLIC_KEY!=="YOUR_EMAILJS_PUBLIC_KEY"){
+    emailjs.init(window.EMAILJS_PUBLIC_KEY);
+    window.EMAILJS_READY=true;
+  }
+  loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',function(){
 loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js',function(){
 loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js',function(){
   try{
@@ -104,6 +116,7 @@ loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js',f
     Babel.transformScriptTags();
   });});});
 });});});
+}); // end EmailJS loadScript
 </script>
 
 <script type="text/plain" id="app-source">
@@ -419,19 +432,58 @@ function Vendors({vendors,onSave,onDel}){
     </div>)}
   </div>;
 }
-function PO({items,vendors,orders,onSaveOrder,onDelOrder}){
+function PO({items,vendors,orders,onSaveOrder,onDelOrder,settings}){
+  // Detect mobile
+  const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  // PO fields
   const [vnd,setVnd]=useState("");
   const [pit,setPit]=useState([]);
   const [pn,setPn]=useState("PO-"+new Date().getFullYear()+"-"+String(orders.length+1).padStart(3,"0"));
   const [pd,setPd]=useState(new Date().toISOString().split("T")[0]);
-  const [jn,setJn]=useState(""); const [jo,setJo]=useState("");
-  const [st,setSt]=useState(""); const [sd,setSd]=useState("");
+  const [jn,setJn]=useState("");
+  const [jo,setJo]=useState("");
+  const [sd,setSd]=useState("");
   const [asap,setAsap]=useState(false);
-  const [fr,setFr]=useState("");
+  const [fr,setFr]=useState("0");        // freight dollar amount in PO Details
+  const [taxPct,setTaxPct]=useState(""); // tax % field
   const [tax,setTax]=useState("taxable");
   const [fral,setFral]=useState(true);
   const [usr,setUsr]=useState("");
   const [pne,setPne]=useState("");
+  const [submitting,setSubmitting]=useState(false);
+
+  // Ship To dropdown + conditional fields
+  const [shipMode,setShipMode]=useState(""); // "frost"|"jobsite"|"pickup"|"pricing"
+  const [jsLine1,setJsLine1]=useState("");
+  const [jsLine2,setJsLine2]=useState("");
+
+  // Pricing mode auto-fills
+  useEffect(()=>{
+    if(shipMode==="pricing"){setPn("Pricing");setJn("Pricing");setJo("");}
+    else if(pn==="Pricing"&&jn==="Pricing"){
+      setPn("PO-"+new Date().getFullYear()+"-"+String(orders.length+1).padStart(3,"0"));
+      setJn("");
+    }
+  },[shipMode]);
+
+  // Build ship-to display string for PO
+  const shipDisplay=()=>{
+    if(shipMode==="frost") return [settings.companyName,settings.companyAddress,settings.companyCity].filter(Boolean).join(", ");
+    if(shipMode==="jobsite") return [jsLine1,jsLine2].filter(Boolean).join(", ");
+    if(shipMode==="pickup") return "Pick Up";
+    if(shipMode==="pricing") return "";
+    return "";
+  };
+
+  // Format date as "Mar 9, 2026"
+  const fmtDate=iso=>{
+    if(!iso) return "";
+    const [y,m,d]=iso.split("-");
+    const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${months[parseInt(m,10)-1]} ${parseInt(d,10)}, ${y}`;
+  };
+
   const v=vendors.find(x=>x.id===vnd);
   const u=USERS.find(x=>x.name===usr);
   const fn=u?u.name.split(" ")[0]:"";
@@ -440,58 +492,193 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder}){
   const rem=id=>setPit(p=>p.filter(x=>x.id!==id));
   const upd=(id,k,val)=>setPit(p=>p.map(x=>x.id===id?{...x,[k]:val}:x));
   const sub=pit.reduce((s,p)=>s+(Number(p.orderQty)||0)*(Number(p.unitPrice)||0),0);
-  const tot=sub+(Number(fr)||0);
+  const frAmt=Number(fr)||0;
+  const taxAmt=taxPct?sub*(Number(taxPct)/100):0;
+  const tot=sub+frAmt+taxAmt;
   const fmt=n=>n===0?"$ -":"$"+n.toFixed(2);
-  const sdsp=asap?"ASAP":sd;
+  const sdsp=asap?"ASAP":fmtDate(sd);
   const chkDup=num=>{const d=orders.some(o=>o.poNum===num);setPne(d?`PO # "${num}" already exists.`:"");return d;};
+
   const poHtml=()=>{
-    const rows=Array.from({length:20}).map((_,i)=>{const p=pit[i];const e=p?(Number(p.orderQty)||0)*(Number(p.unitPrice)||0):0;return`<tr style="height:24px"><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px">${p?p.orderQty:""}</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px">${p?p.orderUnit:""}</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px">${p?p.desc:""}</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right">${p&&p.unitPrice?"$"+Number(p.unitPrice).toFixed(2):""}</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right">${p&&e>0?"$"+e.toFixed(2):"$ -"}</td></tr>`;}).join("");
+    const rows=Array.from({length:20}).map((_,i)=>{
+      const p=pit[i];const e=p?(Number(p.orderQty)||0)*(Number(p.unitPrice)||0):0;
+      return`<tr style="height:24px"><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px">${p?p.orderQty:""}</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px">${p?p.orderUnit:""}</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px">${p?p.desc:""}</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right">${p&&p.unitPrice?"$"+Number(p.unitPrice).toFixed(2):""}</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right">${p&&e>0?"$"+e.toFixed(2):"$ -"}</td></tr>`;
+    }).join("");
+    const shipAddr=shipDisplay();
+    const showShip=shipMode!=="pricing";
     return`<!DOCTYPE html><html><head><title>PO ${pn}</title><style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;padding:15px;font-size:12px}table{width:100%;border-collapse:collapse}.hb{background:#000;color:#fff;text-align:center;padding:10px;font-size:26px;font-weight:900;letter-spacing:1px;margin-bottom:6px}.sb2{background:#168c97;height:5px;margin-bottom:10px}th{background:#333;color:#fff;border:1px solid #ccc;padding:5px;font-size:11px;text-align:left}.tw{display:flex;justify-content:space-between;margin-bottom:8px}.pb{border:2px solid #000;padding:6px 14px;min-width:130px;text-align:center;font-size:18px;font-weight:bold}.fl{font-weight:bold;display:inline-block;width:80px}.ul{border-bottom:1px solid #000;display:inline-block;min-width:180px}.ft{text-align:center;margin-top:8px;font-size:9px;border-top:4px solid #168c97;padding-top:5px}.bt{display:flex;gap:20px;margin-top:8px;font-size:11px}</style></head><body>
 <div class="hb">FROST ROOFING</div><div class="sb2"></div>
-<div class="tw"><div><div><span class="fl">DATE:</span><span class="ul">&nbsp;${pd}</span></div><div style="margin:3px 0"><span class="fl">JOB NAME:</span><span class="ul">&nbsp;${jn}</span></div><div><span class="fl">JOB NO:</span><span class="ul">&nbsp;${jo}</span></div></div><div style="text-align:center"><div style="font-size:12px;font-weight:bold;margin-bottom:4px">PURCHASE ORDER NUMBER</div><div class="pb">${pn}</div></div></div>
-<div class="tw"><div style="flex:1"><div><span class="fl">TO:</span><span class="ul">&nbsp;${v?v.name:""}</span></div><div style="margin:3px 0"><span style="display:inline-block;width:80px"></span><span class="ul">&nbsp;${v?v.street||"":""}</span></div><div style="margin:3px 0"><span style="display:inline-block;width:80px"></span><span class="ul">&nbsp;${v?v.cityState||"":""}</span></div><div><span class="fl">ATTN:</span><span class="ul">&nbsp;${v?v.contact||"":""}</span></div></div><div style="flex:1;padding-left:20px"><div><span class="fl">SHIP TO:</span><span class="ul">&nbsp;${st}</span></div><div style="margin-top:28px"><span class="fl">SHIP DATE:</span><span class="ul">&nbsp;${sdsp}</span></div></div></div>
+<div class="tw"><div><div><span class="fl">DATE:</span><span class="ul">&nbsp;${fmtDate(pd)}</span></div><div style="margin:3px 0"><span class="fl">JOB NAME:</span><span class="ul">&nbsp;${jn}</span></div>${shipMode!=="pricing"?`<div><span class="fl">JOB NO:</span><span class="ul">&nbsp;${jo}</span></div>`:""}</div><div style="text-align:center"><div style="font-size:12px;font-weight:bold;margin-bottom:4px">PURCHASE ORDER NUMBER</div><div class="pb">${pn}</div></div></div>
+<div class="tw"><div style="flex:1"><div><span class="fl">TO:</span><span class="ul">&nbsp;${v?v.name:""}</span></div><div style="margin:3px 0"><span style="display:inline-block;width:80px"></span><span class="ul">&nbsp;${v?v.street||"":""}</span></div><div style="margin:3px 0"><span style="display:inline-block;width:80px"></span><span class="ul">&nbsp;${v?v.cityState||"":""}</span></div><div><span class="fl">ATTN:</span><span class="ul">&nbsp;${v?v.contact||"":""}</span></div></div>${showShip?`<div style="flex:1;padding-left:20px"><div><span class="fl">SHIP TO:</span><span class="ul">&nbsp;${shipAddr}</span></div><div style="margin-top:28px"><span class="fl">SHIP DATE:</span><span class="ul">&nbsp;${sdsp}</span></div></div>`:""}</div>
 <table style="margin-top:10px"><thead><tr><th style="width:50px">QTY</th><th style="width:60px">UNIT</th><th>DESCRIPTION</th><th style="width:80px">UNIT PRICE</th><th style="width:90px">EXTENSION</th></tr></thead><tbody>${rows}</tbody></table>
-<div style="display:flex;justify-content:flex-end;margin-top:4px"><table style="width:220px"><tr><td style="padding:3px 5px;font-size:11px;text-align:right">Subtotal</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right;width:90px">${fmt(sub)}</td></tr><tr><td style="padding:3px 5px;font-size:11px;text-align:right">Freight</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right">${fr?"$"+Number(fr).toFixed(2):""}</td></tr><tr><td style="padding:3px 5px;font-size:11px;text-align:right">Tax</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right">$ -</td></tr><tr><td style="padding:3px 5px;font-size:11px;font-weight:bold;text-align:right">Total</td><td style="border:2px solid #000;padding:3px 5px;font-size:11px;font-weight:bold;text-align:right">${fmt(tot)}</td></tr></table></div>
+<div style="display:flex;justify-content:flex-end;margin-top:4px"><table style="width:220px"><tr><td style="padding:3px 5px;font-size:11px;text-align:right">Subtotal</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right;width:90px">${fmt(sub)}</td></tr><tr><td style="padding:3px 5px;font-size:11px;text-align:right">Freight</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right">${frAmt>0?"$"+frAmt.toFixed(2):"$ -"}</td></tr><tr><td style="padding:3px 5px;font-size:11px;text-align:right">Tax${taxPct?` (${taxPct}%)`:""}</td><td style="border:1px solid #ccc;padding:3px 5px;font-size:11px;text-align:right">${taxAmt>0?"$"+taxAmt.toFixed(2):"$ -"}</td></tr><tr><td style="padding:3px 5px;font-size:11px;font-weight:bold;text-align:right">Total</td><td style="border:2px solid #000;padding:3px 5px;font-size:11px;font-weight:bold;text-align:right">${fmt(tot)}</td></tr></table></div>
 <div style="font-size:10px;text-align:center;margin:8px 0">PURCHASE ORDER NUMBERS MUST APPEAR ON ALL PACKING SLIPS &amp; INVOICES.<br>ALL INVOICES TO BE SENT TO: PO BOX 1959, WAPAKONETA OH 45895</div>
 <div class="bt"><label><input type="checkbox" ${tax==="taxable"?"checked":""}> TAXABLE</label><label><input type="checkbox" ${tax==="exempt"?"checked":""}> EXEMPT</label><label><input type="checkbox" ${fral?"checked":""}> FREIGHT ALLOWED</label><span>BY: ${fn||"___________________________"}</span></div>
 <div class="ft">FROST ROOFING INC. &bull; PO BOX 1959, WAPAKONETA, OH 45895 &bull; PH: (419) 739-2701 &bull; EOE EMPLOYER<br>WWW.FROST-ROOFING.COM &bull; INFO@FROST-ROOFING.COM</div>
 <script>window.print();<\/script></body></html>`;
   };
-  const mkOrder=()=>({id:Date.now()+"",poNum:pn,poDate:pd,vendorId:vnd,vendorName:v?.name||"Unknown",jobName:jn,jobNo:jo,shipTo:st,shipDate:sdsp,items:pit.map(p=>({...p})),subtotal:sub,total:tot,status:"Sent",createdBy:usr||"",createdAt:new Date().toISOString()});
-  const doPrint=async()=>{if(chkDup(pn))return;const w=window.open("","_blank");if(w)w.document.write(poHtml());await onSaveOrder(mkOrder());};
-  const doEmail=async()=>{
-    if(!u){alert("Please select a person to email to.");return;}
+
+  const mkOrder=()=>({
+    id:Date.now()+"",poNum:pn,poDate:pd,vendorId:vnd,vendorName:v?.name||"Unknown",
+    jobName:jn,jobNo:jo,shipTo:shipDisplay(),shipDate:sdsp,
+    items:pit.map(p=>({...p})),subtotal:sub,freight:frAmt,taxPct:taxPct||"0",taxAmt,total:tot,
+    status:"Sent",createdBy:usr||"",createdAt:new Date().toISOString()
+  });
+
+  // Build CSV content for email attachment
+  const buildCSV=()=>{
+    const lines=[
+      ["FROST ROOFING - PURCHASE ORDER"],
+      ["PO Number",pn],
+      ["Date",fmtDate(pd)],
+      ["Vendor",v?v.name:""],
+      ["Job Name",jn],
+      ["Job No",jo],
+      ["Ship To",shipDisplay()],
+      ["Ship Date",sdsp],
+      ["Prepared By",usr],
+      [],
+      ["Qty","Unit","Description","Unit Price","Extension"],
+      ...pit.map(p=>[p.orderQty,p.orderUnit,p.desc||p.name,p.unitPrice?(Number(p.unitPrice).toFixed(2)):"",((Number(p.orderQty)||0)*(Number(p.unitPrice)||0)).toFixed(2)]),
+      [],
+      ["","","","Subtotal",sub.toFixed(2)],
+      ["","","","Freight",frAmt.toFixed(2)],
+      ["","","",`Tax${taxPct?" ("+taxPct+"%)":""}`,taxAmt.toFixed(2)],
+      ["","","","TOTAL",tot.toFixed(2)],
+    ];
+    return lines.map(r=>r.map(c=>`"${String(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  };
+
+  const doSubmit=async()=>{
+    if(!u){alert("Please select a Prepared By person.");return;}
     if(chkDup(pn))return;
-    const sub2=encodeURIComponent(`Purchase Order ${pn} - ${v?v.name:"Vendor"}`);
-    const body=encodeURIComponent([`Hi ${fn},`,``,`PO Number: ${pn}`,`Date: ${pd}`,`Vendor: ${v?v.name:""}`,jn?`Job Name: ${jn}`:"",jo?`Job No: ${jo}`:"",`Ship Date: ${sdsp||"TBD"}`,``,`Items:`,...pit.map(p=>`  - ${p.desc||p.name}: ${p.orderQty} ${p.orderUnit}${p.unitPrice?" @ $"+Number(p.unitPrice).toFixed(2)+" ea":""}`),``,`Subtotal: ${fmt(sub)}`,fr?`Freight: $${Number(fr).toFixed(2)}`:"",`Total: ${fmt(tot)}`].filter(Boolean).join("\n"));
-    window.location.href=`mailto:${u.email}?subject=${sub2}&body=${body}`;
+    if(!window.EMAILJS_READY){alert("EmailJS is not configured yet. Please add your EmailJS keys to the app.");return;}
+    setSubmitting(true);
+    try{
+      const csvContent=buildCSV();
+      const csvB64=btoa(unescape(encodeURIComponent(csvContent)));
+      await emailjs.send(
+        window.EMAILJS_SERVICE_ID,
+        window.EMAILJS_TEMPLATE_ID,
+        {
+          to_email:u.email,
+          to_name:fn,
+          po_number:pn,
+          po_date:fmtDate(pd),
+          vendor_name:v?v.name:"",
+          job_name:jn,
+          job_no:jo,
+          ship_to:shipDisplay(),
+          ship_date:sdsp,
+          subtotal:fmt(sub),
+          freight:fmt(frAmt),
+          tax:taxAmt>0?fmt(taxAmt):"$ -",
+          total:fmt(tot),
+          item_count:pit.length+"",
+          csv_content:csvContent,
+        },
+        window.EMAILJS_PUBLIC_KEY
+      );
+      await onSaveOrder(mkOrder());
+      alert(`✅ PO ${pn} submitted and emailed to ${u.email}`);
+    }catch(e){
+      alert("Email failed: "+e.text||e.message||"Unknown error");
+    }finally{
+      setSubmitting(false);
+    }
+  };
+
+  const doPrint=async()=>{
+    if(chkDup(pn))return;
+    const w=window.open("","_blank");
+    if(w)w.document.write(poHtml());
     await onSaveOrder(mkOrder());
   };
-  const dis=pit.length===0||!vnd||!!pne;
+
+  const dis=pit.length===0||!vnd||!!pne||!shipMode;
+
   return <div style={{display:"flex",flexDirection:"column",gap:12}}>
     <div className="card">
       <div className="sec-hdr">Purchase Order Details</div>
       <div style={{padding:14,display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+
+        {/* PO Number */}
         <div style={{gridColumn:"1/-1"}}>
-          <F lbl="PO Number" val={pn} onChange={v=>{setPn(v);setPne("");}}/>
+          <F lbl="PO Number" val={pn} onChange={v=>{setPn(v);setPne("");}} disabled={shipMode==="pricing"}/>
           {pne&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{pne}</p>}
         </div>
+
+        {/* Date */}
         <F lbl="Date" val={pd} onChange={setPd} type="date"/>
-        <F lbl="Job Name" val={jn} onChange={setJn}/>
-        <F lbl="Job No" val={jo} onChange={setJo}/>
-        <div style={{gridColumn:"1/-1"}}><Sel lbl="Vendor (TO)" val={vnd} onChange={setVnd}><option value="">-- Select Vendor --</option>{vendors.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</Sel></div>
-        <F lbl="Ship To" val={st} onChange={setSt}/>
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+
+        {/* Freight $ */}
+        <div className="fw">
+          <label>Freight ($)</label>
+          <input type="number" value={fr} onChange={e=>setFr(e.target.value)} placeholder="0.00" style={{border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",fontSize:16,width:"100%",outline:"none",background:"white"}}/>
+        </div>
+
+        {/* Job Name */}
+        <F lbl="Job Name" val={jn} onChange={setJn} disabled={shipMode==="pricing"}/>
+
+        {/* Job No — hidden in pricing mode */}
+        {shipMode!=="pricing"&&<F lbl="Job No" val={jo} onChange={setJo}/>}
+
+        {/* Tax % */}
+        <div className="fw" style={{gridColumn:"1/-1"}}>
+          <label>Tax Rate (%)</label>
+          <input type="number" value={taxPct} onChange={e=>setTaxPct(e.target.value)} placeholder="0  (leave blank if exempt)" style={{border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",fontSize:16,width:"100%",outline:"none",background:"white"}}/>
+        </div>
+
+        {/* Vendor */}
+        <div style={{gridColumn:"1/-1"}}>
+          <Sel lbl="Vendor (TO)" val={vnd} onChange={setVnd}>
+            <option value="">-- Select Vendor --</option>
+            {vendors.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}
+          </Sel>
+        </div>
+
+        {/* Ship To dropdown */}
+        <div style={{gridColumn:"1/-1"}}>
+          <div className="fw">
+            <label>Ship To</label>
+            <select value={shipMode} onChange={e=>setShipMode(e.target.value)} style={{border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",fontSize:16,width:"100%",outline:"none",background:"white"}}>
+              <option value="">-- Select --</option>
+              <option value="frost">Frost Roofing</option>
+              <option value="jobsite">Jobsite</option>
+              <option value="pickup">Pick Up</option>
+              <option value="pricing">Pricing</option>
+            </select>
+          </div>
+          {shipMode==="frost"&&<div style={{marginTop:8,fontSize:12,color:B,background:"#f0fafb",borderRadius:8,padding:"6px 10px"}}>
+            📍 {settings.companyName} — {settings.companyAddress}, {settings.companyCity}
+          </div>}
+          {shipMode==="jobsite"&&<div style={{display:"flex",flexDirection:"column",gap:8,marginTop:8}}>
+            <F lbl="Street Address" val={jsLine1} onChange={setJsLine1}/>
+            <F lbl="City, State, ZIP" val={jsLine2} onChange={setJsLine2}/>
+          </div>}
+          {shipMode==="pickup"&&<div style={{marginTop:8,fontSize:12,color:"#6b7280",background:"#f9fafb",borderRadius:8,padding:"6px 10px"}}>No shipping address needed.</div>}
+          {shipMode==="pricing"&&<div style={{marginTop:8,fontSize:12,color:"#92400e",background:"#fffbeb",borderRadius:8,padding:"6px 10px"}}>⚠ Pricing mode — PO#, Job Name locked to "Pricing". No address or Job No.</div>}
+        </div>
+
+        {/* Ship Date — hidden in pricing mode */}
+        {shipMode!=="pricing"&&<div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:6}}>
           <F lbl="Ship Date" val={asap?"":sd} onChange={setSd} type="date" disabled={asap}/>
-          <label className="cr" style={{marginTop:2}}>
+          <label className="cr">
             <input type="checkbox" checked={asap} onChange={e=>{setAsap(e.target.checked);if(e.target.checked)setSd("");}} style={{width:18,height:18,flexShrink:0,cursor:"pointer"}}/>
             ASAP
           </label>
-        </div>
+        </div>}
+
+        {/* Prepared By */}
         <div style={{gridColumn:"1/-1"}}>
-          <Sel lbl="Prepared By / Email To" val={usr} onChange={setUsr}><option value="">-- Select Person --</option>{USERS.map(u=><option key={u.name} value={u.name}>{u.name}</option>)}</Sel>
+          <Sel lbl="Prepared By / Submit To" val={usr} onChange={setUsr}>
+            <option value="">-- Select Person --</option>
+            {USERS.map(u=><option key={u.name} value={u.name}>{u.name}</option>)}
+          </Sel>
           {usr&&<p style={{fontSize:11,color:B,marginTop:4}}>✉ {USERS.find(u=>u.name===usr)?.email}</p>}
         </div>
+
+        {/* Tax / Freight Allowed checkboxes */}
         <div style={{gridColumn:"1/-1",display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
           <span style={{fontSize:11,fontWeight:600,color:"#6b7280",textTransform:"uppercase"}}>Tax:</span>
           <label className="cr">
@@ -507,14 +694,24 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder}){
             Freight Allowed
           </label>
         </div>
+
+        {/* Running totals preview */}
+        <div style={{gridColumn:"1/-1",background:"#f0fafb",borderRadius:10,padding:"10px 14px",display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end",fontSize:13}}>
+          <span style={{color:"#6b7280"}}>Subtotal: <b>{fmt(sub)}</b></span>
+          <span style={{color:"#6b7280"}}>Freight: <b>{fmt(frAmt)}</b></span>
+          {taxAmt>0&&<span style={{color:"#6b7280"}}>Tax ({taxPct}%): <b>${taxAmt.toFixed(2)}</b></span>}
+          <span style={{fontSize:16,fontWeight:700,color:B}}>Total: {fmt(tot)}</span>
+        </div>
       </div>
     </div>
+
     {need.length>0&&<div className="card">
       <div style={{background:"#fef9c3",padding:"8px 14px",fontSize:13,fontWeight:600,color:"#92400e"}}>⚠ Low / Out / On Order — tap to add</div>
       <div style={{padding:"10px 14px",display:"flex",flexWrap:"wrap",gap:6}}>
         {need.map(i=><button key={i.id} onClick={()=>add(i)} disabled={!!pit.find(p=>p.id===i.id)} style={{fontSize:12,padding:"4px 10px",borderRadius:8,border:"1px solid",cursor:"pointer",borderColor:pit.find(p=>p.id===i.id)?"#e5e7eb":B,background:"white",color:pit.find(p=>p.id===i.id)?"#9ca3af":B}}>{i.name} ({Number(i.qty)||0} {i.unit})</button>)}
       </div>
     </div>}
+
     <div className="card">
       <div className="sec-hdr" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         Line Items
@@ -534,17 +731,17 @@ function PO({items,vendors,orders,onSaveOrder,onDelOrder}){
           </div>
           <F lbl="Description" val={p.desc} onChange={val=>upd(p.id,"desc",val)}/>
         </div>)}
-        {pit.length>0&&<div style={{borderTop:"1px solid #e5e7eb",paddingTop:10,display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
-          <span style={{fontSize:13,color:"#6b7280"}}>Subtotal: <b>{fmt(sub)}</b></span>
-          <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"#6b7280"}}>Freight: $<input type="number" value={fr} onChange={e=>setFr(e.target.value)} placeholder="0.00" style={{width:80,textAlign:"right",border:"1px solid #e5e7eb",borderRadius:8,padding:"4px 8px",fontSize:13,outline:"none",background:"white"}}/></div>
-          <span style={{fontSize:16,fontWeight:700,color:B}}>Total: {fmt(tot)}</span>
-        </div>}
       </div>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-      <button className="btn-brand" style={{padding:14,borderRadius:14,fontSize:14}} disabled={dis} onClick={doPrint}>🖨 Print & Save</button>
-      <button style={{padding:14,borderRadius:14,fontSize:14,border:"2px solid #168c97",background:"white",color:"#168c97",fontWeight:700,cursor:"pointer",opacity:(dis||!usr)?0.4:1,WebkitAppearance:"none"}} disabled={dis||!usr} onClick={doEmail}>✉ Email PO</button>
+
+    {/* Action buttons */}
+    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+      {!isMobile&&<button className="btn-brand" style={{padding:14,borderRadius:14,fontSize:14}} disabled={dis} onClick={doPrint}>🖨 Print & Save</button>}
+      <button className="btn-brand" style={{padding:14,borderRadius:14,fontSize:14,opacity:(dis||!usr||submitting)?0.4:1}} disabled={dis||!usr||submitting} onClick={doSubmit}>
+        {submitting?"Sending…":"📤 Submit"}
+      </button>
     </div>
+
     <div className="card">
       <div className="sec-hdr" style={{display:"flex",justifyContent:"space-between"}}>Recent Orders<span style={{fontSize:12,opacity:.8}}>{orders.length} total</span></div>
       <div style={{padding:12,display:"flex",flexDirection:"column",gap:8,maxHeight:280,overflowY:"auto"}}>
@@ -792,7 +989,7 @@ function App(){
       {page==="bigrock"&&<InvSection section="bigrock" items={items} onSave={si} onDel={di}/>}
       {page==="misc"&&<InvSection section="misc" items={items} onSave={si} onDel={di}/>}
       {page==="vendors"&&<Vendors vendors={vendors} onSave={sv} onDel={dv}/>}
-      {page==="po"&&<PO items={items} vendors={vendors} orders={orders} onSaveOrder={so} onDelOrder={dord}/>}
+      {page==="po"&&<PO items={items} vendors={vendors} orders={orders} onSaveOrder={so} onDelOrder={dord} settings={settings}/>}
       {page==="history"&&<History orders={orders} onUpdate={updOrds} onDel={dord}/>}
       {page==="settings"&&<Settings settings={settings} onSave={ss} items={items} onSaveItem={si}/>}
     </div>
